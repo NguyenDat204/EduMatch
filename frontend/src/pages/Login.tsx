@@ -1,110 +1,97 @@
-import { Mail, Lock, Chrome, Facebook } from "lucide-react";
-import { Button } from "../components/ui/Button";
-import { Input } from "../components/ui/Input";
-import { motion } from "framer-motion";
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, ArrowRight, Github, Sparkles } from 'lucide-react';
+import { MainLayout } from '../layouts';
 
-export function Login() {
-    return (
-        <div className="min-h-screen grid lg:grid-cols-2">
-            {/* Left Side - Image/Promotion */}
-            <div className="hidden lg:flex flex-col justify-center items-center bg-slate-50 p-12 relative overflow-hidden">
-                <div className="absolute top-8 left-8">
-                    <a href="/" className="flex items-center gap-2 text-primary font-bold">
-                        <div className="bg-primary text-white p-1 rounded-lg">
-                            <span className="material-symbols-outlined block text-sm">school</span>
-                        </div>
-                        EduMatch
-                    </a>
-                </div>
+export const Login = () => {
+  const navigate = useNavigate();
 
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="max-w-md text-center"
-                >
-                    <img
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkvc7L_m3TycX89AwgDNjufBaSSgrnUTR2b62-LM7Ohstz9wPYB51A2n36IvIiR5E1FIHFHgsTzcgHa9ZdTKrypSOPsDHWkKoRmYyNUZGVQgnyaYrV-ucCaNqkZdL1vaMYADwMYdtJtrK362GkEqUf20FSQsjPvC3nHjRYVNlAa69OvgFzCo_AInhV5sffbFmxQ1MyOkhAdq-Fljl7trRpJgY0W7WnN1i10_M1tTtdNf8C2JuMttbf0_T4V2why96A0FsAJlG1fNMg"
-                        alt="Welcome back"
-                        className="rounded-[2.5rem] shadow-2xl mb-12 rotate-2"
-                    />
-                    <h2 className="text-4xl font-black mb-6 leading-tight">Chào mừng trở lại với <span className="text-primary">EduMatch!</span></h2>
-                    <p className="text-slate-600 text-lg">Hãy tiếp tục hành trình chọn trường của bạn và kiến tạo tương lai vững chắc ngay hôm nay.</p>
-                </motion.div>
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Simulate login
+    navigate('/dashboard');
+  };
 
-                <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-3xl"></div>
+  return (
+    <MainLayout>
+      <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md animate-slide-up">
+          <div className="glass rounded-3xl p-8 md:p-10 shadow-premium">
+            <div className="text-center mb-10">
+              <div className="inline-flex items-center justify-center w-12 h-12 premium-gradient rounded-xl text-white shadow-lg mb-4">
+                <Sparkles size={24} />
+              </div>
+              <h1 className="text-3xl font-display font-bold text-slate-900 dark:text-white mb-2">Welcome Back</h1>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">Continue your career discovery journey.</p>
             </div>
 
-            {/* Right Side - Login Form */}
-            <div className="flex flex-col justify-center px-6 lg:px-24 xl:px-32 py-12 bg-white">
-                <div className="max-w-md w-full mx-auto">
-                    <div className="lg:hidden mb-8">
-                        <a href="/" className="flex items-center gap-2 text-primary font-bold">
-                            <div className="bg-primary text-white p-1 rounded-lg">
-                                <span className="material-symbols-outlined block text-sm">school</span>
-                            </div>
-                            EduMatch
-                        </a>
-                    </div>
-
-                    <h1 className="text-3xl font-black mb-2">Đăng nhập</h1>
-                    <p className="text-slate-500 mb-8">Vui lòng nhập thông tin của bạn để tiếp tục.</p>
-
-                    <div className="grid grid-cols-2 gap-4 mb-8">
-                        <Button variant="secondary" className="gap-2 font-medium py-6">
-                            <Chrome className="w-5 h-5 text-red-500" />
-                            Tiếp tục với Google
-                        </Button>
-                        <Button variant="secondary" className="gap-2 font-medium py-6">
-                            <Facebook className="w-5 h-5 text-blue-600" />
-                            Tiếp tục với Facebook
-                        </Button>
-                    </div>
-
-                    <div className="relative mb-8">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-slate-200" />
-                        </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-white px-4 text-slate-500 font-medium tracking-wider">Hoặc email</span>
-                        </div>
-                    </div>
-
-                    <form className="space-y-6">
-                        <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700 ml-1">Địa chỉ Email</label>
-                            <Input
-                                type="email"
-                                placeholder="email@example.com"
-                                icon={<Mail className="w-5 h-5" />}
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                                <label className="text-sm font-bold text-slate-700 ml-1">Mật khẩu</label>
-                                <a href="#" className="text-xs font-bold text-primary hover:underline">Quên mật khẩu?</a>
-                            </div>
-                            <Input
-                                type="password"
-                                placeholder="••••••••"
-                                icon={<Lock className="w-5 h-5" />}
-                            />
-                        </div>
-
-                        <div className="flex items-center gap-2 py-2">
-                            <input type="checkbox" id="remember" className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4" />
-                            <label htmlFor="remember" className="text-sm font-medium text-slate-600">Duy trì đăng nhập</label>
-                        </div>
-
-                        <Button className="w-full py-7 text-lg shadow-xl shadow-primary/20">
-                            Đăng nhập ngay
-                        </Button>
-                    </form>
-
-                    <p className="mt-8 text-center text-sm font-medium text-slate-600">
-                        Chưa có tài khoản? <a href="/register" className="text-primary font-bold hover:underline">Đăng ký miễn phí</a>
-                    </p>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 ml-1">Email Address</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
+                    <Mail size={18} />
+                  </div>
+                  <input 
+                    type="email" 
+                    required 
+                    placeholder="student@example.com"
+                    className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                  />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center ml-1">
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Password</label>
+                  <Link to="/forgot-password" className="text-xs font-semibold text-primary-600 hover:text-primary-700 transition-colors">Quên mật khẩu?</Link>
+                </div>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-primary-500 transition-colors">
+                    <Lock size={18} />
+                  </div>
+                  <input 
+                    type="password" 
+                    required 
+                    placeholder="••••••••"
+                    className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="submit"
+                className="w-full py-4 premium-gradient text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-xl shadow-primary-500/20 hover:shadow-primary-500/40 btn-transition mt-8"
+              >
+                Sign In
+                <ArrowRight size={18} />
+              </button>
+            </form>
+
+            <div className="relative my-10">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100 dark:border-slate-800"></div></div>
+              <div className="relative flex justify-center text-xs uppercase tracking-widest font-bold"><span className="px-3 bg-white dark:bg-slate-900 text-slate-400">Or continue with</span></div>
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <button 
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center justify-center gap-2 py-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-2xl text-sm font-bold transition-all border border-slate-100 dark:border-slate-700"
+              >
+                <div className="w-4 h-4 rounded-full bg-red-500 mr-1" /> Google
+              </button>
+              <button className="flex items-center justify-center gap-2 py-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-2xl text-sm font-bold transition-all border border-slate-100 dark:border-slate-700">
+                <Github size={18} /> Github
+              </button>
+            </div>
+
+            <p className="text-center mt-10 text-sm text-slate-500 dark:text-slate-400">
+              Don't have an account? {' '}
+              <Link to="/register" className="font-bold text-primary-600 hover:text-primary-700 underline decoration-2 underline-offset-4">Create account</Link>
+            </p>
+          </div>
         </div>
-    );
-}
+      </div>
+    </MainLayout>
+  );
+};
