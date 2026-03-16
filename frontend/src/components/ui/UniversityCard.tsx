@@ -1,6 +1,6 @@
 import React from 'react';
 import { MapPin, Star, ExternalLink } from 'lucide-react';
-import { University } from '../../lib/mockData';
+import type { University } from '../../lib/mockData';
 
 interface UniversityCardProps {
   university: University;

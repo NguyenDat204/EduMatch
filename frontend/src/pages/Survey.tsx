@@ -26,7 +26,8 @@ export const Survey = () => {
   };
 
   const handleComplete = () => {
-    navigate('/result');
+    // Navigate with state containing both survey answers and any academic profile info
+    navigate('/result', { state: { answers } });
   };
 
   return (

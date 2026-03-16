@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { NavLink, useNavigate, Outlet } from 'react-router-dom';
-import { 
-  Users, 
-  Briefcase, 
-  BarChart, 
-  MessageSquare, 
+import {
+  Users,
+  Briefcase,
+  BarChart,
+  MessageSquare,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -30,7 +30,7 @@ export const AdminLayout = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex text-slate-900 dark:text-slate-100 font-sans">
       {/* Admin Sidebar */}
-      <aside 
+      <aside
         className={cn(
           "fixed left-0 top-0 h-screen bg-slate-900 text-slate-300 border-r border-slate-800 z-40 transition-all duration-300 flex flex-col",
           isCollapsed ? "w-20" : "w-64"
@@ -46,7 +46,7 @@ export const AdminLayout = () => {
                 </span>
               </div>
             )}
-            <button 
+            <button
               onClick={() => setIsCollapsed(!isCollapsed)}
               className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors"
             >
@@ -61,8 +61,8 @@ export const AdminLayout = () => {
                 to={item.path}
                 className={({ isActive }) => cn(
                   "flex items-center gap-4 px-4 py-3 rounded-xl transition-all group",
-                  isActive 
-                    ? "bg-primary-600 text-white shadow-lg shadow-primary-500/20" 
+                  isActive
+                    ? "bg-primary-600 text-white shadow-lg shadow-primary-500/20"
                     : "hover:bg-slate-800 hover:text-white"
                 )}
               >
@@ -73,7 +73,7 @@ export const AdminLayout = () => {
           </nav>
 
           <div className="px-4 mt-auto">
-            <button 
+            <button
               onClick={handleLogout}
               className={cn(
                 "flex items-center gap-4 px-4 py-3 rounded-xl transition-all text-red-400 hover:bg-red-500/10 w-full",
@@ -88,7 +88,7 @@ export const AdminLayout = () => {
       </aside>
 
       {/* Main Content Area */}
-      <main 
+      <main
         className={cn(
           "flex-1 transition-all duration-300 min-h-screen",
           isCollapsed ? "ml-20" : "ml-64"

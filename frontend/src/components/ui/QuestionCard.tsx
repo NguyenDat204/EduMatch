@@ -1,5 +1,5 @@
 import React from 'react';
-import { Question } from '../../lib/mockData';
+import type { Question } from '../../lib/mockData';
 import { cn } from '../../lib/utils';
 
 interface QuestionCardProps {

@@ -57,16 +57,68 @@ export const mockUniversities: University[] = [
 export const mockQuestions: Question[] = [
   {
     id: 'q1',
-    text: 'Do you enjoy solving complex logical puzzles?',
+    text: 'Bạn có thích giải quyết các bài toán logic hoặc câu đố hóc búa không?',
     type: 'choice',
-    options: ['Not at all', 'Sometimes', 'Very much'],
+    options: ['Không bao giờ', 'Thỉnh thoảng', 'Rất yêu thích'],
     category: 'personality'
   },
   {
     id: 'q2',
-    text: 'How interested are you in how technology works?',
+    text: 'Bạn quan tâm đến việc tìm hiểu cách thức hoạt động của các thiết bị công nghệ ở mức độ nào?',
     type: 'scale',
     category: 'interest'
+  },
+  {
+    id: 'q3',
+    text: 'Bạn có thích làm việc trong một môi trường sáng tạo, nơi bạn có thể tự do thể hiện ý tưởng nghệ thuật không?',
+    type: 'choice',
+    options: ['Không quan tâm', 'Có một chút', 'Đó là đam mê của tôi'],
+    category: 'interest'
+  },
+  {
+    id: 'q4',
+    text: 'Khả năng trình bày ý tưởng của bạn trước đám đông hoặc trong một nhóm như thế nào?',
+    type: 'scale',
+    category: 'skill'
+  },
+  {
+    id: 'q5',
+    text: 'Bạn có xu hướng muốn trở thành người dẫn dắt và tổ chức công việc cho người khác không?',
+    type: 'choice',
+    options: ['Thích làm theo hơn', 'Tùy trường hợp', 'Luôn sẵn sàng dẫn dắt'],
+    category: 'personality'
+  },
+  {
+    id: 'q6',
+    text: 'Bạn cảm thấy thế nào khi phải làm việc với các con số và dữ liệu chi tiết?',
+    type: 'scale',
+    category: 'skill'
+  },
+  {
+    id: 'q7',
+    text: 'Bạn có thích dành thời gian để nghiên cứu và tìm hiểu sâu về một hiện tượng tự nhiên hoặc xã hội không?',
+    type: 'choice',
+    options: ['Khá nhàm chán', 'Bình thường', 'Rất tò mò'],
+    category: 'interest'
+  },
+  {
+    id: 'q8',
+    text: 'Mức độ kiên nhẫn của bạn khi đối mặt với một vấn đề kỹ thuật khó giải quyết?',
+    type: 'scale',
+    category: 'personality'
+  },
+  {
+    id: 'q9',
+    text: 'Bạn có thích các công việc liên quan đến chăm sóc, hỗ trợ hoặc tư vấn cho người khác không?',
+    type: 'choice',
+    options: ['Không phù hợp', 'Có thể thử', 'Rất thích giúp đỡ'],
+    category: 'interest'
+  },
+  {
+    id: 'q10',
+    text: 'Khả năng thích nghi của bạn với những thay đổi đột ngột trong kế hoạch hoặc môi trường làm việc?',
+    type: 'scale',
+    category: 'skill'
   }
 ];
 

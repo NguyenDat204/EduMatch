@@ -14,7 +14,8 @@ import {
   Heart,
   BookOpen,
   Book,
-  Target
+  Target,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '../utils';
 
@@ -27,6 +28,7 @@ export const Sidebar = () => {
       group: 'Khám phá',
       items: [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+        { icon: Sparkles, label: 'Trắc nghiệm hướng nghiệp', path: '/survey' },
         { icon: Compass, label: 'Khám phá nghề nghiệp', path: '/explore' },
         { icon: Scale, label: 'So sánh nghề nghiệp', path: '/compare' },
         { icon: GraduationCap, label: 'Điểm sàn Đại học', path: '/universities' },
