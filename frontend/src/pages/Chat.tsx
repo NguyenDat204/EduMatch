@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, Plus, Image as ImageIcon, Mic } from 'lucide-react';
+import { Send, Sparkles, Plus, Image as ImageIcon, Mic, Loader2 } from 'lucide-react';
 import { DashboardLayout } from '../layouts';
 import { ChatMessage } from '../components/ui';
+import { aiApiService } from '../services/api';
 
 export const Chat = () => {
   const [messages, setMessages] = useState([
-    { role: 'ai', content: "Hello! I'm your AI Career Advisor. I've analyzed your assessment results. You seem to have a strong affinity for logical structures and problem solving. Would you like to explore Software Architecture or Data Science first?" },
+    { role: 'ai', content: "Xin chào! Mình là AI Advisor định hướng nghề nghiệp riêng của bạn. Mình đã sẵn sàng hỗ trợ bạn tìm câu trả lời cho các băn khoăn chọn ngành, chọn trường hoặc lên lộ trình phát triển. Bạn có muốn bắt đầu không?" },
   ]);
   const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -16,28 +18,43 @@ export const Chat = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isTyping]);
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() || isTyping) return;
 
     const userMessage = { role: 'user', content: input };
-    setMessages([...messages, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput('');
+    setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      setMessages(prev => [...prev, { 
-        role: 'ai', 
-        content: `That's a great question about ${input.toLowerCase()}. Based on current market trends, this field is growing at 15% annually. I recommend looking at Stanford's Computer Science program for the best curriculum in this area.` 
+    try {
+      // Send chat history to backend (which is fully context-aware of student grades & surveys!)
+      const response = await aiApiService.sendMessage(updatedMessages);
+      if (response.success && response.data) {
+        setMessages(prev => [...prev, {
+          role: 'ai',
+          content: response.data.content
+        }]);
+      } else {
+        throw new Error(response.message || 'Advisor response error');
+      }
+    } catch (err) {
+      console.error("AI Advisor error:", err);
+      setMessages(prev => [...prev, {
+        role: 'ai',
+        content: "Xin lỗi bạn, kết nối tới AI Advisor hiện tại đang gián đoạn. Bạn vui lòng thử lại sau vài giây nhé!"
       }]);
-    }, 1000);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   return (
     <DashboardLayout>
-      <div className="h-[calc(100vh-12rem)] flex flex-col glass rounded-[2.5rem] overflow-hidden border-none shadow-premium">
+      <div className="h-[calc(100vh-12rem)] flex flex-col glass rounded-[2.5rem] overflow-hidden border-none shadow-premium animate-fade-in">
         {/* Chat Header */}
         <header className="px-8 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white/50 dark:bg-slate-900/50 backdrop-blur-md">
           <div className="flex items-center gap-3">
@@ -53,16 +70,23 @@ export const Chat = () => {
             </div>
           </div>
           <button className="text-xs font-bold text-primary-600 px-4 py-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg hover:bg-primary-100 transition-colors">
-            View Analytics
+            Context Active
           </button>
         </header>
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-8 scrollbar-premium">
-          <div className="max-w-3xl mx-auto space-y-2">
+          <div className="max-w-3xl mx-auto space-y-4">
             {messages.map((msg, i) => (
               <ChatMessage key={i} role={msg.role as 'user' | 'ai'} content={msg.content} />
             ))}
+            
+            {isTyping && (
+              <div className="flex items-center gap-2 text-slate-400 text-xs font-medium bg-slate-50 dark:bg-slate-800/30 w-fit px-4 py-2 rounded-2xl border border-slate-100 dark:border-slate-800 animate-pulse">
+                <Loader2 size={14} className="animate-spin text-primary-500" />
+                <span>EduMatch Advisor is typing...</span>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
         </div>
@@ -82,8 +106,9 @@ export const Chat = () => {
                   type="text" 
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
+                  disabled={isTyping}
                   placeholder="Ask me anything about your career path..."
-                  className="w-full pl-6 pr-12 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all"
+                  className="w-full pl-6 pr-12 py-4 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-400 text-sm disabled:opacity-75"
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-2">
                    <button type="button" className="text-slate-400 hover:text-slate-600"><ImageIcon size={18} /></button>
@@ -93,7 +118,7 @@ export const Chat = () => {
 
               <button 
                 type="submit"
-                disabled={!input.trim()}
+                disabled={!input.trim() || isTyping}
                 className="p-4 premium-gradient text-white rounded-2xl shadow-lg shadow-primary-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100"
               >
                 <Send size={20} />

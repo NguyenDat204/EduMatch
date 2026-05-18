@@ -1,22 +1,47 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, GraduationCap, ArrowRight, Sparkles } from 'lucide-react';
+import { Mail, Lock, User, GraduationCap, ArrowRight, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 import { MainLayout } from '../layouts';
+import { useAuth } from '../hooks/useAuth';
 
 export const Register = () => {
+  const [name, setName] = useState('');
+  const [school, setSchool] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const { register, isLoading } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate register
-    navigate('/survey');
+    setError(null);
+
+    if (password !== confirmPassword) {
+      setError('Mật khẩu xác nhận không trùng khớp.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Mật khẩu phải chứa ít nhất 6 ký tự.');
+      return;
+    }
+
+    try {
+      await register(name, email, password, school);
+      // On success registration redirect to survey
+      navigate('/survey');
+    } catch (err: any) {
+      setError(err.message || 'Đăng ký tài khoản thất bại. Vui lòng thử lại.');
+    }
   };
 
   return (
     <MainLayout>
       <div className="min-h-[90vh] flex items-center justify-center px-4 py-16">
-        <div className="w-full max-w-xl animate-slide-up">
-          <div className="glass rounded-[2rem] p-8 md:p-12 shadow-premium">
+        <div className="w-full max-w-xl animate-slide-up animate-fade-in">
+          <div className="glass rounded-[2rem] p-8 md:p-12 shadow-premium border-none">
             <div className="text-center mb-10">
               <div className="inline-flex items-center justify-center w-12 h-12 premium-gradient rounded-xl text-white shadow-lg mb-4">
                 <Sparkles size={24} />
@@ -24,6 +49,13 @@ export const Register = () => {
               <h1 className="text-3xl font-display font-bold text-slate-900 dark:text-white mb-2">Discover Your Future</h1>
               <p className="text-slate-500 dark:text-slate-400 text-sm">Join thousands of students finding their path.</p>
             </div>
+
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-2xl flex items-start gap-3 text-sm font-medium border border-red-100 dark:border-red-950/30">
+                <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -36,8 +68,10 @@ export const Register = () => {
                     <input 
                       type="text" 
                       required 
-                      placeholder="John Doe"
-                      className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-400"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Nguyen Van A"
+                      className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-400 text-sm"
                     />
                   </div>
                 </div>
@@ -51,8 +85,10 @@ export const Register = () => {
                     <input 
                       type="text" 
                       required 
-                      placeholder="High School Name"
-                      className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-400"
+                      value={school}
+                      onChange={(e) => setSchool(e.target.value)}
+                      placeholder="THPT Phan Đình Phùng"
+                      className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-400 text-sm"
                     />
                   </div>
                 </div>
@@ -67,8 +103,10 @@ export const Register = () => {
                   <input 
                     type="email" 
                     required 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="student@example.com"
-                    className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-400"
+                    className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-400 text-sm"
                   />
                 </div>
               </div>
@@ -83,8 +121,10 @@ export const Register = () => {
                     <input 
                       type="password" 
                       required 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-400"
+                      className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-400 text-sm"
                     />
                   </div>
                 </div>
@@ -98,8 +138,10 @@ export const Register = () => {
                     <input 
                       type="password" 
                       required 
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-400"
+                      className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 outline-none transition-all placeholder:text-slate-400 text-sm"
                     />
                   </div>
                 </div>
@@ -114,10 +156,20 @@ export const Register = () => {
 
               <button 
                 type="submit"
-                className="w-full py-4 premium-gradient text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-xl shadow-primary-500/20 hover:shadow-primary-500/40 btn-transition mt-4"
+                disabled={isLoading}
+                className="w-full py-4 premium-gradient text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-xl shadow-primary-500/20 hover:shadow-primary-500/40 btn-transition mt-4 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
               >
-                Create Account
-                <ArrowRight size={18} />
+                {isLoading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  <>
+                    Create Account
+                    <ArrowRight size={18} />
+                  </>
+                )}
               </button>
             </form>
 

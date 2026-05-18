@@ -18,10 +18,12 @@ import {
   Sparkles
 } from 'lucide-react';
 import { cn } from '../utils';
+import { useAuth } from '../hooks/useAuth';
 
 export const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const navGroups = [
     {
@@ -49,7 +51,7 @@ export const Sidebar = () => {
   ];
 
   const handleLogout = () => {
-    // In the future this should clear AuthContext/tokens
+    logout();
     navigate('/');
   };
 

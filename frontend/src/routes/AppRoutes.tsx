@@ -32,6 +32,7 @@ const Articles         = lazy(() => import('../pages/Articles').then(m => ({ def
 const AdminLayout = lazy(() => import('../layouts/AdminLayout').then(m => ({ default: m.AdminLayout })));
 const AdminUsers = lazy(() => import('../pages/admin/Users').then(m => ({ default: m.Users })));
 const AdminCareers = lazy(() => import('../pages/admin/Careers').then(m => ({ default: m.Careers })));
+const AdminUniversities = lazy(() => import('../pages/admin/Universities').then(m => ({ default: m.Universities })));
 const AdminAnalytics = lazy(() => import('../pages/admin/Analytics').then(m => ({ default: m.Analytics })));
 const AdminFeedback = lazy(() => import('../pages/admin/Feedback').then(m => ({ default: m.Feedback })));
 
@@ -77,6 +78,7 @@ export const AppRoutes = () => (
       <Route path="/admin" element={<AdminLayout />}>
         <Route path="users" element={<AdminUsers />} />
         <Route path="careers" element={<AdminCareers />} />
+        <Route path="universities" element={<AdminUniversities />} />
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="feedback" element={<AdminFeedback />} />
       </Route>

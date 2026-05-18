@@ -10,7 +10,8 @@ import {
 } from 'lucide-react';
 import { DashboardLayout } from '../layouts';
 import { CareerCard } from '../components/ui';
-import axios from 'axios';
+import { aiApiService } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 
 interface IndustryResult {
   archetype: string;
@@ -21,6 +22,7 @@ interface IndustryResult {
 }
 
 export const Result = () => {
+  const { user, isLoading: authLoading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -28,18 +30,23 @@ export const Result = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login');
+    }
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => {
     const fetchRecommendations = async () => {
       try {
         const surveyData = location.state;
         if (!surveyData) {
-          // If no data, maybe they didn't complete the survey
           setError("No survey data found. Please complete the assessment first.");
           setLoading(false);
           return;
         }
 
-        const response = await axios.post('http://localhost:5000/api/recommendations', surveyData);
-        setResult(response.data);
+        const data = await aiApiService.getRecommendations(surveyData);
+        setResult(data);
         setLoading(false);
       } catch (err) {
         console.error("Fetch error:", err);
@@ -51,7 +58,7 @@ export const Result = () => {
     fetchRecommendations();
   }, [location.state]);
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <DashboardLayout>
         <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -62,6 +69,8 @@ export const Result = () => {
       </DashboardLayout>
     );
   }
+
+  if (!user) return null;
 
   if (error) {
     return (

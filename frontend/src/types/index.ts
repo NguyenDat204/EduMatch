@@ -4,6 +4,7 @@
 
 export interface Career {
   id: string;
+  _id?: string;
   title: string;
   description: string;
   salary: string;
@@ -15,6 +16,7 @@ export interface Career {
 
 export interface University {
   id: string;
+  _id?: string;
   name: string;
   location: string;
   ranking: string;
@@ -42,6 +44,22 @@ export interface User {
     grade: string;
     majorInterest: string;
   };
+  personalityTest?: {
+    archetype?: string;
+    description?: string;
+    suitabilityScore?: number;
+    careers?: any[];
+  };
+  skillEvaluation?: {
+    scores: {
+      technical: number;
+      creative: number;
+      communication: number;
+      analytical: number;
+      leadership: number;
+    };
+  };
+  favorites?: any[];
 }
 
 // ─────────────────────────────────────────────────────────────

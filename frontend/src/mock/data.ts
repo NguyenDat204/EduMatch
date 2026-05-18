@@ -55,68 +55,102 @@ export const mockUniversities: University[] = [
 ];
 
 export const mockQuestions: Question[] = [
+  // ─── PHẦN 1: SỞ THÍCH HỌC THUẬT & THÍCH ỨNG CÔNG NGHỆ ──────────────────
   {
     id: 'q1',
-    text: 'Bạn có thích giải quyết các bài toán logic hoặc câu đố hóc búa không?',
+    text: 'Khi đối mặt với một bài toán hóc búa hoặc trò chơi câu đố logic, bạn thường phản ứng như thế nào?',
     type: 'choice',
     options: ['Không bao giờ', 'Thỉnh thoảng', 'Rất yêu thích'],
     category: 'personality'
   },
   {
     id: 'q2',
-    text: 'Bạn quan tâm đến việc tìm hiểu cách thức hoạt động của các thiết bị công nghệ ở mức độ nào?',
+    text: 'Bạn hứng thú ở mức độ nào trong việc tìm hiểu cách thức hoạt động bên trong của các ứng dụng, website hoặc thiết bị công nghệ hiện đại?',
     type: 'scale',
     category: 'interest'
   },
   {
     id: 'q3',
-    text: 'Bạn có thích làm việc trong một môi trường sáng tạo, nơi bạn có thể tự do thể hiện ý tưởng nghệ thuật không?',
+    text: 'Mức độ đam mê tự học lập trình, phân tích dữ liệu hoặc tìm hiểu về các công nghệ Trí tuệ nhân tạo (AI/ChatGPT) của bạn?',
+    type: 'scale',
+    category: 'interest'
+  },
+  {
+    id: 'q4',
+    text: 'Mức độ kiên nhẫn tự tìm hiểu, tra cứu lỗi và tự khắc phục của bạn khi các thiết bị điện tử hoặc phần mềm bạn đang dùng gặp sự cố kỹ thuật?',
+    type: 'scale',
+    category: 'personality'
+  },
+  {
+    id: 'q5',
+    text: 'Khi đọc báo hoặc xem tin tức, bạn có xu hướng bị thu hút bởi các khám phá khoa học mới hay các xu hướng công nghệ tương lai không?',
+    type: 'choice',
+    options: ['Không quan tâm', 'Có một chút', 'Rất tò mò'],
+    category: 'interest'
+  },
+  // ─── PHẦN 2: TƯ DUY SÁNG TẠO & XỬ LÝ SỐ LIỆU ──────────────────────────
+  {
+    id: 'q6',
+    text: 'Nếu được giao xây dựng một sản phẩm thực tế, bạn có muốn tự do thiết kế phong cách giao diện nghệ thuật, lựa chọn tông màu phối và bố cục sáng tạo không?',
     type: 'choice',
     options: ['Không quan tâm', 'Có một chút', 'Đó là đam mê của tôi'],
     category: 'interest'
   },
   {
-    id: 'q4',
-    text: 'Khả năng trình bày ý tưởng của bạn trước đám đông hoặc trong một nhóm như thế nào?',
-    type: 'scale',
-    category: 'skill'
-  },
-  {
-    id: 'q5',
-    text: 'Bạn có xu hướng muốn trở thành người dẫn dắt và tổ chức công việc cho người khác không?',
-    type: 'choice',
-    options: ['Thích làm theo hơn', 'Tùy trường hợp', 'Luôn sẵn sàng dẫn dắt'],
-    category: 'personality'
-  },
-  {
-    id: 'q6',
-    text: 'Bạn cảm thấy thế nào khi phải làm việc với các con số và dữ liệu chi tiết?',
-    type: 'scale',
-    category: 'skill'
-  },
-  {
     id: 'q7',
-    text: 'Bạn có thích dành thời gian để nghiên cứu và tìm hiểu sâu về một hiện tượng tự nhiên hoặc xã hội không?',
+    text: 'Bạn tự đánh giá cao khả năng cảm nhận thẩm mỹ, phối màu và tính sáng tạo trực quan của bản thân ở mức độ nào?',
+    type: 'scale',
+    category: 'skill'
+  },
+  {
+    id: 'q8',
+    text: 'Bạn đánh giá khả năng kiên trì và tự tin của bản thân khi phải làm việc trực tiếp với các bảng số liệu chi tiết hoặc phân tích lượng thông tin lớn?',
+    type: 'scale',
+    category: 'skill'
+  },
+  {
+    id: 'q9',
+    text: 'Bạn cảm thấy thế nào trước việc dành nhiều giờ nghiên cứu tài liệu chuyên sâu để tìm ra nguyên nhân gốc rễ của một hiện tượng tự nhiên hoặc vấn đề xã hội?',
     type: 'choice',
     options: ['Khá nhàm chán', 'Bình thường', 'Rất tò mò'],
     category: 'interest'
   },
   {
-    id: 'q8',
-    text: 'Mức độ kiên nhẫn của bạn khi đối mặt với một vấn đề kỹ thuật khó giải quyết?',
+    id: 'q10',
+    text: 'Độ chính xác, tính ngăn nắp và kỷ luật của bản thân khi tự lập kế hoạch học tập chi tiết hoặc tự sắp xếp công việc theo lịch trình sẵn có?',
     type: 'scale',
+    category: 'skill'
+  },
+  // ─── PHẦN 3: KỸ NĂNG TƯƠNG TÁC & THÍCH ỨNG THỰC TẾ ───────────────────
+  {
+    id: 'q11',
+    text: 'Khi tham gia hoạt động đội nhóm hoặc bài tập lớn, xu hướng tự nhiên của bạn trong việc tổ chức công việc và lãnh đạo đội ngũ là gì?',
+    type: 'choice',
+    options: ['Thích làm theo hơn', 'Tùy trường hợp', 'Luôn sẵn sàng dẫn dắt'],
     category: 'personality'
   },
   {
-    id: 'q9',
-    text: 'Bạn có thích các công việc liên quan đến chăm sóc, hỗ trợ hoặc tư vấn cho người khác không?',
+    id: 'q12',
+    text: 'Hãy tự đánh giá mức độ tự tin và kỹ năng của bạn khi cần thuyết trình, đàm phán hoặc truyền đạt một ý tưởng mới trước đám đông?',
+    type: 'scale',
+    category: 'skill'
+  },
+  {
+    id: 'q13',
+    text: 'Bạn có cảm thấy hạnh phúc và hào hứng khi làm các công việc mang tính chất lắng nghe chia sẻ, tư vấn hướng nghiệp hoặc hỗ trợ khó khăn cho người khác không?',
     type: 'choice',
     options: ['Không phù hợp', 'Có thể thử', 'Rất thích giúp đỡ'],
     category: 'interest'
   },
   {
-    id: 'q10',
-    text: 'Khả năng thích nghi của bạn với những thay đổi đột ngột trong kế hoạch hoặc môi trường làm việc?',
+    id: 'q14',
+    text: 'Khả năng đọc vị cảm xúc, lắng nghe thấu cảm và giải quyết các xung đột nảy sinh giữa các thành viên trong nhóm của bạn ở mức độ nào?',
+    type: 'scale',
+    category: 'skill'
+  },
+  {
+    id: 'q15',
+    text: 'Đánh giá khả năng tự quản lý áp lực học tập và nhanh chóng xoay chuyển kế hoạch khi có những thay đổi đột ngột từ thầy cô hoặc lịch thi cử?',
     type: 'scale',
     category: 'skill'
   }

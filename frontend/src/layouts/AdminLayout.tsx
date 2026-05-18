@@ -8,22 +8,27 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  School
 } from 'lucide-react';
 import { cn } from '../utils';
+import { useAuth } from '../hooks/useAuth';
 
 export const AdminLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
   const navItems = [
     { icon: Users, label: 'Quản lý Người dùng', path: '/admin/users' },
     { icon: Briefcase, label: 'Quản lý Nghề nghiệp', path: '/admin/careers' },
+    { icon: School, label: 'Quản lý Trường học', path: '/admin/universities' },
     { icon: BarChart, label: 'Thống kê & Báo cáo', path: '/admin/analytics' },
     { icon: MessageSquare, label: 'Phản hồi', path: '/admin/feedback' },
   ];
 
   const handleLogout = () => {
+    logout();
     navigate('/');
   };
 

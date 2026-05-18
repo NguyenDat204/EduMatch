@@ -1,28 +1,57 @@
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, Github, Sparkles } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Sparkles, AlertCircle, Loader2 } from 'lucide-react';
 import { MainLayout } from '../layouts';
+import { useAuth } from '../hooks/useAuth';
 
 export const Login = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const { login, loginViaGoogle, isLoading } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login
-    navigate('/dashboard');
+    setError(null);
+    try {
+      await login(email, password);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Email hoặc mật khẩu không chính xác.');
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    try {
+      // Simulate Google Sign-in with seeded student account
+      await loginViaGoogle('student@edumatch.vn', 'Nguyễn Đạt', 'https://i.pravatar.cc/150?u=student');
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Google authentication simulation failed');
+    }
   };
 
   return (
     <MainLayout>
       <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md animate-slide-up">
-          <div className="glass rounded-3xl p-8 md:p-10 shadow-premium">
-            <div className="text-center mb-10">
+        <div className="w-full max-w-md animate-slide-up animate-fade-in">
+          <div className="glass rounded-3xl p-8 md:p-10 shadow-premium border-none">
+            <div className="text-center mb-8">
               <div className="inline-flex items-center justify-center w-12 h-12 premium-gradient rounded-xl text-white shadow-lg mb-4">
                 <Sparkles size={24} />
               </div>
               <h1 className="text-3xl font-display font-bold text-slate-900 dark:text-white mb-2">Welcome Back</h1>
               <p className="text-slate-500 dark:text-slate-400 text-sm">Continue your career discovery journey.</p>
             </div>
+
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-2xl flex items-start gap-3 text-sm font-medium border border-red-100 dark:border-red-950/30">
+                <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
@@ -34,8 +63,10 @@ export const Login = () => {
                   <input 
                     type="email" 
                     required 
-                    placeholder="student@example.com"
-                    className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="student@edumatch.vn"
+                    className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400 text-sm"
                   />
                 </div>
               </div>
@@ -52,40 +83,50 @@ export const Login = () => {
                   <input 
                     type="password" 
                     required 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400"
+                    className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-2xl focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all placeholder:text-slate-400 text-sm"
                   />
                 </div>
               </div>
 
               <button 
                 type="submit"
-                className="w-full py-4 premium-gradient text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-xl shadow-primary-500/20 hover:shadow-primary-500/40 btn-transition mt-8"
+                disabled={isLoading}
+                className="w-full py-4 premium-gradient text-white rounded-2xl font-bold flex items-center justify-center gap-2 shadow-xl shadow-primary-500/20 hover:shadow-primary-500/40 btn-transition mt-8 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
               >
-                Sign In
-                <ArrowRight size={18} />
+                {isLoading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    Sign In
+                    <ArrowRight size={18} />
+                  </>
+                )}
               </button>
             </form>
 
-            <div className="relative my-10">
+            <div className="relative my-8">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100 dark:border-slate-800"></div></div>
               <div className="relative flex justify-center text-xs uppercase tracking-widest font-bold"><span className="px-3 bg-white dark:bg-slate-900 text-slate-400">Or continue with</span></div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <button 
                 type="button"
-                onClick={() => navigate('/dashboard')}
-                className="flex items-center justify-center gap-2 py-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-2xl text-sm font-bold transition-all border border-slate-100 dark:border-slate-700"
+                onClick={handleGoogleLogin}
+                className="flex items-center justify-center gap-2 py-3.5 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-2xl text-sm font-bold transition-all border border-slate-100 dark:border-slate-700 active:scale-95"
               >
-                <div className="w-4 h-4 rounded-full bg-red-500 mr-1" /> Google
-              </button>
-              <button className="flex items-center justify-center gap-2 py-3 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-2xl text-sm font-bold transition-all border border-slate-100 dark:border-slate-700">
-                <Github size={18} /> Github
+                <div className="w-4 h-4 rounded-full bg-red-500 mr-1 shrink-0" />
+                Google Account (student@edumatch.vn)
               </button>
             </div>
 
-            <p className="text-center mt-10 text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-center mt-8 text-sm text-slate-500 dark:text-slate-400">
               Don't have an account? {' '}
               <Link to="/register" className="font-bold text-primary-600 hover:text-primary-700 underline decoration-2 underline-offset-4">Create account</Link>
             </p>
