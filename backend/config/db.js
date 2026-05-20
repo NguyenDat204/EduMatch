@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
 const connectDB = async () => {
-  const connUri = process.env.MONGODB_URI || "mongodb+srv://edumatch:Edumatch%40@exe101edumatch.1ruj8h4.mongodb.net/Edumatch?retryWrites=true&w=majority";
+  const connUri = process.env.MONGODB_URI;
   const options = {
     serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of hanging
     socketTimeoutMS: 45000,         // Close sockets after 45s of inactivity
