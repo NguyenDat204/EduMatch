@@ -1,6 +1,8 @@
 const aiService = require("../services/aiService");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const CareerRecommendation = require("../models/CareerRecommendation");
+const UserInteraction = require("../models/UserInteraction");
 
 const getRecommendations = async (req, res) => {
   try {
@@ -46,4 +48,115 @@ const getRecommendations = async (req, res) => {
   }
 };
 
-module.exports = { getRecommendations };
+// @desc    Get user's recommendations
+// @route   GET /api/recommendations
+// @access  Private
+const getUserRecommendations = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { limit = 10, sort = "-generatedAt" } = req.query;
+
+    const recommendations = await CareerRecommendation.find({ userId })
+      .populate("recommendedCareers.careerId", "title category salary skills")
+      .sort(sort)
+      .limit(parseInt(limit));
+
+    res.status(200).json({
+      success: true,
+      count: recommendations.length,
+      data: recommendations,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// @desc    Get latest recommendation
+// @route   GET /api/recommendations/latest
+// @access  Private
+const getLatestRecommendation = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const recommendation = await CareerRecommendation.findOne({ userId })
+      .populate("recommendedCareers.careerId")
+      .sort("-generatedAt");
+
+    if (!recommendation) {
+      return res.status(404).json({
+        success: false,
+        message: "No recommendations found. Please generate recommendations first.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: recommendation,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// @desc    Accept/validate recommendation
+// @route   POST /api/recommendations/:id/accept
+// @access  Private
+const acceptRecommendation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isAccepted, rating, comment } = req.body;
+    const userId = req.user.id;
+
+    const recommendation = await CareerRecommendation.findOneAndUpdate(
+      { _id: id, userId },
+      {
+        isAccepted,
+        userFeedback: {
+          rating,
+          comment,
+        },
+      },
+      { new: true }
+    );
+
+    if (!recommendation) {
+      return res.status(404).json({
+        success: false,
+        message: "Recommendation not found",
+      });
+    }
+
+    // Track user interaction
+    await UserInteraction.create({
+      userId,
+      action: "chat_about",
+      metadata: {
+        feedback: isAccepted,
+      },
+      timestamp: new Date(),
+    });
+
+    res.status(200).json({
+      success: true,
+      data: recommendation,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+module.exports = { 
+  getRecommendations,
+  getUserRecommendations,
+  getLatestRecommendation,
+  acceptRecommendation
+};
