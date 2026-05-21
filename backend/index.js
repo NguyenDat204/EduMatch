@@ -16,6 +16,8 @@ const articleRoutes = require("./routes/articleRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const recommendationRoutes = require("./routes/recommendationRoutes");
+const skillGapRoutes = require("./routes/skillGapRoutes");
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
 
 // Connect to Database
 connectDB().then(() => {
@@ -39,6 +41,8 @@ app.use("/api/articles", articleRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/recommendations", recommendationRoutes);
+app.use("/api/analytics/skill-gap", skillGapRoutes);
+app.use("/api/subscription", subscriptionRoutes);
 
 app.get("/", (req, res) => {
   res.send("EduMatch AI API Server is running beautifully...");
