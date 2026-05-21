@@ -24,6 +24,10 @@ const UserSchema = new mongoose.Schema(
       enum: ["student", "admin", "university"],
       default: "student",
     },
+    universityId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "University",
+    },
     avatar: {
       type: String,
       default: "https://i.pravatar.cc/150?u=student",
@@ -32,6 +36,14 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    subscription: {
+      plan: { type: String, default: "free", enum: ["free", "pro"] },
+      startDate: { type: Date },
+      endDate: { type: Date },
+      status: { type: String, default: "none" }
+    },
+    resetPasswordOTP: { type: String },
+    resetPasswordOTPExpires: { type: Date },
     academicInfo: {
       school: { type: String, default: "" },
       grade: { type: String, default: "12" },

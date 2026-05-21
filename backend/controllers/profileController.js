@@ -46,7 +46,8 @@ const updateProfile = async (req, res) => {
           academicInfo: updatedUser.academicInfo,
           favorites: updatedUser.favorites,
           personalityTest: updatedUser.personalityTest,
-          skillEvaluation: updatedUser.skillEvaluation
+          skillEvaluation: updatedUser.skillEvaluation,
+          universityId: updatedUser.universityId
         },
       });
     } else {
@@ -112,9 +113,52 @@ const updateSkillEvaluation = async (req, res) => {
   }
 };
 
+// @desc    Upgrade user account to Pro (Simulated sandbox payment validation)
+// @route   POST /api/profile/upgrade
+// @access  Private
+const upgradeToPro = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+    }
+
+    user.isPro = true;
+    user.subscription = {
+      plan: "pro",
+      startDate: new Date(),
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days active limit
+      status: "active"
+    };
+
+    const updatedUser = await user.save();
+    console.log(`[PRO UPGRADE] User "${user.name}" upgraded to PRO successfully!`);
+
+    res.json({
+      success: true,
+      message: "Tài khoản của bạn đã được nâng cấp lên gói PRO thành công!",
+      data: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        avatar: updatedUser.avatar,
+        isPro: updatedUser.isPro,
+        subscription: updatedUser.subscription,
+        academicInfo: updatedUser.academicInfo,
+        universityId: updatedUser.universityId
+      }
+    });
+  } catch (error) {
+    console.error("Upgrade to Pro Error:", error);
+    res.status(500).json({ message: "Lỗi máy chủ trong quá trình nâng cấp", error: error.message });
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
   updateAcademicProfile,
   updateSkillEvaluation,
+  upgradeToPro,
 };

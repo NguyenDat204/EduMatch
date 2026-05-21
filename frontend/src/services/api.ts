@@ -28,8 +28,8 @@ export const authService = {
     const response = await apiClient.post('/auth/login', { email, password });
     return response.data;
   },
-  register: async (name: string, email: string, password: string, school?: string): Promise<ApiResponse<{ data: User; token: string }>> => {
-    const response = await apiClient.post('/auth/register', { name, email, password, school });
+  register: async (name: string, email: string, password: string, school?: string, role?: string): Promise<ApiResponse<{ data: User; token: string }>> => {
+    const response = await apiClient.post('/auth/register', { name, email, password, school, role });
     return response.data;
   },
   loginViaGoogle: async (email: string, name: string, avatar?: string): Promise<ApiResponse<{ data: User; token: string }>> => {
@@ -98,6 +98,18 @@ export const universityService = {
   },
   getUniversityById: async (id: string): Promise<ApiResponse<University>> => {
     const response = await apiClient.get(`/universities/${id}`);
+    return response.data;
+  },
+  trackView: async (id: string): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post(`/universities/${id}/view`);
+    return response.data;
+  },
+  getMyUniversity: async (): Promise<ApiResponse<University>> => {
+    const response = await apiClient.get('/universities/managed/my-university');
+    return response.data;
+  },
+  updateMyUniversity: async (data: Partial<University>): Promise<ApiResponse<University>> => {
+    const response = await apiClient.put('/universities/managed/my-university', data);
     return response.data;
   },
 };

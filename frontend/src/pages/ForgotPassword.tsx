@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, ArrowRight, KeyRound, Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { Mail, ArrowRight, KeyRound, Sparkles, Lock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { MainLayout } from '../layouts';
-import { authService } from '../services/api';
+import { authService, apiClient } from '../services/api';
 
 export const ForgotPassword = () => {
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [isDone, setIsDone] = useState(false);
   const navigate = useNavigate();
 
   const handleSendOTP = async (e: React.FormEvent) => {
@@ -20,7 +22,7 @@ export const ForgotPassword = () => {
     setIsLoading(true);
     try {
       const res = await authService.forgotPassword(email);
-      setSuccessMsg(res.message || 'Mã xác thực khôi phục đã gửi!');
+      setSuccessMsg(res.message || 'Mã xác thực khôi phục đã được gửi!');
       setStep(2);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Không tìm thấy tài khoản với email này.');
@@ -29,15 +31,31 @@ export const ForgotPassword = () => {
     }
   };
 
-  const handleResetPassword = (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    if (newPassword !== confirmPassword) {
+      setError('Mật khẩu xác nhận không trùng khớp.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('Mật khẩu phải có ít nhất 6 ký tự.');
+      return;
+    }
     setIsLoading(true);
-    // Simulate reset completion
-    setTimeout(() => {
+    try {
+      const res = await apiClient.post('/auth/reset-password', { email, otp, newPassword });
+      if (res.data.success) {
+        setIsDone(true);
+        setTimeout(() => navigate('/login'), 2500);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Mã OTP không chính xác hoặc đã hết hạn.');
+    } finally {
       setIsLoading(false);
-      navigate('/login');
-    }, 1200);
+    }
   };
+
 
   return (
     <MainLayout>

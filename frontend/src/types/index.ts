@@ -23,7 +23,19 @@ export interface University {
   logo: string;
   programs: string[];
   website: string;
+  tuitionFee?: number;
+  scholarships?: string;
+  admissions?: string;
+  views?: number;
+  representativeId?: string;
+  viewLogs?: {
+    userId: string;
+    userName: string;
+    userSchool: string;
+    timestamp: string;
+  }[];
 }
+
 
 export interface Question {
   id: string;
@@ -39,6 +51,13 @@ export interface User {
   role: 'student' | 'admin' | 'university';
   avatar: string;
   isPro: boolean;
+  universityId?: string;
+  subscription?: {
+    plan: string;
+    startDate?: string;
+    endDate?: string;
+    status: string;
+  };
   academicInfo?: {
     school: string;
     grade: string;
