@@ -44,6 +44,21 @@ export const UniversityDetails = () => {
     };
 
     fetchUniversity();
+
+    // Track view after 15 seconds
+    const trackingTimer = setTimeout(async () => {
+      if (id) {
+        try {
+          await universityService.trackView(id);
+        } catch (err) {
+          console.warn("Tracking view failed:", err);
+        }
+      }
+    }, 15000);
+
+    return () => {
+      clearTimeout(trackingTimer);
+    };
   }, [id]);
 
   if (loading) {
@@ -92,13 +107,17 @@ export const UniversityDetails = () => {
           
           <div className="absolute bottom-0 left-0 p-10 md:p-14 w-full flex flex-col md:flex-row items-end justify-between gap-8 z-10">
             <div className="flex-1 text-white">
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-4 flex-wrap">
                 <span className="px-4 py-1.5 bg-primary-600 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg">
                   {uni.ranking}
                 </span>
                 <span className="flex items-center gap-1.5 text-sm font-bold text-slate-200">
                   <MapPin size={16} />
                   {uni.location}
+                </span>
+                <span className="flex items-center gap-1.5 text-sm font-bold text-slate-200 bg-white/10 px-3 py-1 rounded-full backdrop-blur-md border border-white/10">
+                  <Users size={14} />
+                  {uni.views || 0} lượt quan tâm
                 </span>
               </div>
               <h1 className="text-4xl md:text-5xl font-display font-black leading-tight">{uni.name}</h1>
@@ -166,6 +185,46 @@ export const UniversityDetails = () => {
                     <ChevronRight size={18} className="text-slate-300 group-hover:text-primary-600 transition-all" />
                   </div>
                 ))}
+              </div>
+            </section>
+
+            <section className="space-y-6">
+              <h2 className="text-3xl font-bold">Thông tin Tuyển sinh & Học phí</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-6 glass rounded-3xl border-none shadow-premium bg-white dark:bg-slate-900 space-y-3">
+                  <div className="flex items-center gap-3 text-primary-600 font-bold">
+                    <Award size={20} />
+                    <span>Học bổng</span>
+                  </div>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                    {uni.scholarships || 'Học bổng đa dạng dựa trên thành tích học tập xuất sắc và hoạt động ngoại khóa.'}
+                  </p>
+                </div>
+                
+                <div className="p-6 glass rounded-3xl border-none shadow-premium bg-white dark:bg-slate-900 space-y-3">
+                  <div className="flex items-center gap-3 text-secondary-600 font-bold">
+                    <BookOpen size={20} />
+                    <span>Phương thức xét tuyển</span>
+                  </div>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                    {uni.admissions || 'Xét tuyển kết hợp học bạ THPT, điểm thi tốt nghiệp và kỳ thi Đánh giá năng lực.'}
+                  </p>
+                </div>
+
+                <div className="p-6 glass rounded-3xl border-none shadow-premium bg-white dark:bg-slate-900 md:col-span-2 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-emerald-600 font-bold">
+                      <Star size={20} />
+                      <span>Học phí dự kiến</span>
+                    </div>
+                    <span className="px-4 py-1.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 font-black text-base rounded-2xl">
+                      {uni.tuitionFee ? (typeof uni.tuitionFee === 'number' ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(uni.tuitionFee) + ' / năm' : uni.tuitionFee) : 'Đang cập nhật'}
+                    </span>
+                  </div>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                    Học phí có thể thay đổi tùy thuộc vào chương trình đào tạo cụ thể (chương trình đại trà, chương trình liên kết hoặc chất lượng cao) và số lượng tín chỉ đăng ký theo kỳ học.
+                  </p>
+                </div>
               </div>
             </section>
           </div>

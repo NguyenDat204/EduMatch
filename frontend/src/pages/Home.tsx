@@ -2,85 +2,120 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowRight,
-  Sparkle,
-  BadgeCheck,
+  CheckCircle2,
   AlertTriangle,
   HeartHandshake,
   AlignJustify,
-  Heart,
-  Banknote,
-  MapPin,
+  GraduationCap,
+  Brain,
+  Target,
+  Users,
+  TrendingUp,
+  MessageSquare,
 } from 'lucide-react';
 
-// Material Symbols helper (uses Google Fonts loaded in index.html)
-const MatIcon = ({ name, className = '' }: { name: string; className?: string }) => (
-  <span className={`material-symbols-outlined ${className}`}>{name}</span>
-);
-
 const fadeUp = {
-  hidden: { opacity: 0, y: 32 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6 } }
+  hidden: { opacity: 0, y: 24 },
+  show:   { opacity: 1, y: 0, transition: { duration: 0.5 } },
 };
 
 export const Home = () => {
   return (
     <>
       <main>
-        {/* ─── Hero ──────────────────────────────────────────────── */}
-        <section className="relative overflow-hidden py-16 lg:py-24">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
+        {/* ─── Hero ─────────────────────────────────────────────── */}
+        <section className="relative overflow-hidden bg-navy-950 text-white py-20 lg:py-28">
+          {/* Subtle grid background */}
+          <div
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)',
+              backgroundSize: '40px 40px',
+            }}
+          />
+          {/* Glow */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary-600/20 rounded-full blur-[120px] pointer-events-none" />
+
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid lg:grid-cols-2 gap-14 items-center">
               <motion.div
-                initial="hidden" whileInView="show" viewport={{ once: true }}
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true }}
                 variants={fadeUp}
-                className="flex flex-col gap-8"
+                className="flex flex-col gap-7"
               >
-                <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider w-fit">
-                  <MatIcon name="auto_awesome" className="text-sm" />
-                  Ứng dụng công nghệ AI tiên phong
+                <div className="inline-flex items-center gap-2 bg-primary-600/20 border border-primary-500/30 text-primary-300 px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider w-fit">
+                  <Brain size={13} />
+                  Ứng dụng AI định hướng nghề nghiệp
                 </div>
-                <h1 className="text-4xl md:text-6xl font-black leading-[1.1] tracking-tight text-slate-900 dark:text-white">
-                  Chọn đúng ngành – Chọn đúng trường –{' '}
-                  <span className="text-primary">Chọn đúng tương lai</span>
+
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-[1.1] tracking-tight">
+                  Chọn đúng ngành –{' '}
+                  <span className="text-primary-400">Chọn đúng tương lai</span>
                 </h1>
-                <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-lg leading-relaxed">
-                  Nền tảng AI định hướng ngành học và gợi ý trường đại học cá nhân hóa dựa trên năng lực và đam mê của bạn.
+
+                <p className="text-lg text-slate-400 max-w-lg leading-relaxed">
+                  Nền tảng AI phân tích tính cách, học lực và sở thích để gợi ý ngành học và trường đại học phù hợp nhất với bạn.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-4">
+
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Link
                     to="/register"
-                    className="bg-primary hover:bg-primary/90 text-white px-8 py-4 rounded-xl text-lg font-bold transition-all shadow-xl shadow-primary/25 flex items-center justify-center gap-2 group"
+                    className="flex items-center justify-center gap-2 px-7 py-3.5 bg-primary-600 hover:bg-primary-500 text-white font-semibold rounded-lg transition-colors shadow-lg group"
                   >
-                    Bắt đầu định hướng ngay
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    Bắt đầu miễn phí
+                    <ArrowRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
                   </Link>
-                  <button className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-8 py-4 rounded-xl text-lg font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-all flex items-center justify-center gap-2">
-                    Khám phá thêm
-                  </button>
+                  <Link
+                    to="/login"
+                    className="flex items-center justify-center gap-2 px-7 py-3.5 bg-white/10 hover:bg-white/15 border border-white/20 text-white font-semibold rounded-lg transition-colors"
+                  >
+                    Đăng nhập
+                  </Link>
+                </div>
+
+                {/* Social proof */}
+                <div className="flex items-center gap-6 pt-2">
+                  <div>
+                    <p className="text-2xl font-black text-white">50k+</p>
+                    <p className="text-xs text-slate-500">Học sinh đã dùng</p>
+                  </div>
+                  <div className="w-px h-10 bg-navy-700" />
+                  <div>
+                    <p className="text-2xl font-black text-white">98.5%</p>
+                    <p className="text-xs text-slate-500">Độ chính xác AI</p>
+                  </div>
+                  <div className="w-px h-10 bg-navy-700" />
+                  <div>
+                    <p className="text-2xl font-black text-white">500+</p>
+                    <p className="text-xs text-slate-500">Trường đối tác</p>
+                  </div>
                 </div>
               </motion.div>
 
+              {/* Hero visual */}
               <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0.97 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.7 }}
-                className="relative"
+                transition={{ duration: 0.6 }}
+                className="relative hidden lg:block"
               >
-                <div className="absolute -z-10 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 bg-primary/20 rounded-full blur-[100px]" />
-                <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-2xl rotate-2 relative">
+                <div className="relative rounded-2xl overflow-hidden border border-navy-700 shadow-modal">
                   <img
-                    alt="Nhóm học sinh đang thảo luận vui vẻ"
-                    className="rounded-lg w-full h-[400px] object-cover"
+                    alt="Học sinh định hướng nghề nghiệp"
+                    className="w-full h-[420px] object-cover"
                     src="https://lh3.googleusercontent.com/aida-public/AB6AXuCIUfYDHrV0pDIuNHM-pIXSrExV_pjy-cEV-Ag-RUeKmjXcp-K8R7njW2xAACikufUqtNyzhAENvqkJ078LTT6kUHit14RF95g2E_3HDlAm4o8_VyF-q-XDHbsq_TPrQymJALpAQPazLhCBZ-t04wEZBKvdukPKFSwikeC5jeF0Dft5SqmvvaSjEdvkSFunBqb5gQxjMaCpHcuXyEfW0IDM71GK9ixOP7OoECqhVT2Te0NZGFchmfaYWOn2XSotzjYDzPFm5p_mmpQH"
                   />
-                  <div className="absolute -bottom-6 -left-6 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-xl flex items-center gap-3 border border-slate-100 dark:border-slate-700 animate-bounce-slow">
-                    <div className="bg-green-100 text-green-600 p-2 rounded-lg">
-                      <BadgeCheck className="w-5 h-5" />
+                  {/* Overlay card */}
+                  <div className="absolute bottom-4 left-4 right-4 bg-navy-950/90 backdrop-blur-sm border border-navy-700 rounded-xl p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center shrink-0">
+                      <CheckCircle2 size={20} className="text-white" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-slate-500 uppercase">Độ chính xác</p>
-                      <p className="text-lg font-black text-slate-900 dark:text-white">98.5%</p>
+                      <p className="text-sm font-bold text-white">Phân tích hoàn tất</p>
+                      <p className="text-xs text-slate-400">AI đã tìm thấy 5 ngành nghề phù hợp với bạn</p>
                     </div>
                   </div>
                 </div>
@@ -89,61 +124,100 @@ export const Home = () => {
           </div>
         </section>
 
-        {/* ─── Problem ───────────────────────────────────────────── */}
-        <section className="py-20 bg-slate-50 dark:bg-slate-900/50" id="problem">
+        {/* ─── Problem ──────────────────────────────────────────── */}
+        <section className="py-20 bg-white dark:bg-navy-950" id="problem">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto mb-16">
-              <h2 className="text-3xl md:text-4xl font-black mb-6">Bạn đang cảm thấy mông lung?</h2>
-              <p className="text-lg text-slate-600 dark:text-slate-400">
-                Hàng năm có đến 60% sinh viên chọn sai ngành nghề do thiếu định hướng từ sớm. Đừng để mình nằm trong con số đó.
+            <div className="text-center max-w-2xl mx-auto mb-14">
+              <h2 className="text-3xl md:text-4xl font-black mb-4 text-slate-900 dark:text-white">
+                Bạn đang cảm thấy mông lung?
+              </h2>
+              <p className="text-slate-500 dark:text-slate-400 leading-relaxed">
+                Hàng năm có đến 60% sinh viên chọn sai ngành nghề do thiếu định hướng từ sớm.
               </p>
             </div>
-            <div className="grid md:grid-cols-3 gap-8">
+
+            <div className="grid md:grid-cols-3 gap-6">
               {[
-                { icon: <AlignJustify className="w-9 h-9 text-primary" />, title: 'Quá nhiều lựa chọn', desc: 'Hàng trăm ngành học mới xuất hiện khiến bạn không biết đâu là thế mạnh thực sự của mình.' },
-                { icon: <HeartHandshake className="w-9 h-9 text-primary" />, title: 'Áp lực từ gia đình', desc: 'Sự khác biệt trong định hướng giữa ba mẹ và con cái tạo nên những rào cản tâm lý khó gỡ.' },
-                { icon: <AlertTriangle className="w-9 h-9 text-primary" />, title: 'Rủi ro thất nghiệp', desc: 'Học ngành không phù hợp dẫn đến việc chán nản và khó tìm việc sau khi ra trường.' },
+                {
+                  icon: <AlignJustify size={24} className="text-primary-600" />,
+                  title: 'Quá nhiều lựa chọn',
+                  desc: 'Hàng trăm ngành học mới xuất hiện khiến bạn không biết đâu là thế mạnh thực sự của mình.',
+                },
+                {
+                  icon: <HeartHandshake size={24} className="text-primary-600" />,
+                  title: 'Áp lực từ gia đình',
+                  desc: 'Sự khác biệt trong định hướng giữa ba mẹ và con cái tạo nên những rào cản tâm lý khó gỡ.',
+                },
+                {
+                  icon: <AlertTriangle size={24} className="text-primary-600" />,
+                  title: 'Rủi ro thất nghiệp',
+                  desc: 'Học ngành không phù hợp dẫn đến việc chán nản và khó tìm việc sau khi ra trường.',
+                },
               ].map((item, i) => (
                 <motion.div
                   key={i}
-                  initial="hidden" whileInView="show" viewport={{ once: true }}
-                  variants={{ ...fadeUp, show: { ...fadeUp.show, transition: { duration: 0.6, delay: i * 0.1 } } }}
-                  className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
+                  initial="hidden"
+                  whileInView="show"
+                  viewport={{ once: true }}
+                  variants={{ ...fadeUp, show: { ...fadeUp.show, transition: { duration: 0.5, delay: i * 0.1 } } }}
+                  className="p-7 rounded-xl border border-slate-200 dark:border-navy-700 bg-slate-50 dark:bg-navy-900 hover:border-primary-300 dark:hover:border-primary-700 transition-colors"
                 >
-                  <div className="mb-4">{item.icon}</div>
-                  <h3 className="text-xl font-bold mb-3">{item.title}</h3>
-                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{item.desc}</p>
+                  <div className="w-11 h-11 bg-primary-50 dark:bg-primary-900/30 rounded-lg flex items-center justify-center mb-5">
+                    {item.icon}
+                  </div>
+                  <h3 className="text-lg font-bold mb-2 text-slate-900 dark:text-white">{item.title}</h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">{item.desc}</p>
                 </motion.div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ─── How It Works ──────────────────────────────────────── */}
-        <section className="py-20" id="how-it-works">
+        {/* ─── How It Works ─────────────────────────────────────── */}
+        <section className="py-20 bg-slate-50 dark:bg-background-dark" id="how-it-works">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
-              <div className="max-w-2xl">
-                <h2 className="text-3xl md:text-5xl font-black mb-4">Quy trình thông minh</h2>
-                <p className="text-lg text-slate-600 dark:text-slate-400">Chỉ với 3 bước đơn giản, EduMatch sẽ giúp bạn phác họa lộ trình tương lai rõ ràng nhất.</p>
-              </div>
-              <ArrowRight className="hidden md:block w-20 h-20 text-slate-200 dark:text-slate-800" />
+            <div className="text-center max-w-2xl mx-auto mb-14">
+              <h2 className="text-3xl md:text-4xl font-black mb-4 text-slate-900 dark:text-white">
+                Chỉ 3 bước đơn giản
+              </h2>
+              <p className="text-slate-500 dark:text-slate-400">
+                EduMatch giúp bạn phác họa lộ trình tương lai rõ ràng trong vài phút.
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-8">
+            <div className="grid md:grid-cols-3 gap-6">
               {[
-                { icon: 'person_edit', num: '01', title: 'Nhập thông tin', desc: 'Cung cấp sở thích cá nhân, điểm số các môn học và ngân sách học tập của gia đình bạn.' },
-                { icon: 'smart_toy',   num: '02', title: 'AI Phân tích',   desc: 'Thuật toán AI nâng cao sẽ đối chiếu thông tin của bạn với dữ liệu hàng nghìn ngành học và trường đại học.' },
-                { icon: 'task_alt',   num: '03', title: 'Nhận kết quả',  desc: 'Nhận báo cáo chi tiết về ngành học phù hợp nhất và danh sách các trường đại học tối ưu cho bạn.' },
+                {
+                  icon: <Users size={24} className="text-white" />,
+                  num: '01',
+                  title: 'Nhập thông tin',
+                  desc: 'Cung cấp sở thích cá nhân, điểm số các môn học và trả lời bài trắc nghiệm tính cách.',
+                },
+                {
+                  icon: <Brain size={24} className="text-white" />,
+                  num: '02',
+                  title: 'AI Phân tích',
+                  desc: 'Thuật toán AI đối chiếu thông tin của bạn với dữ liệu hàng nghìn ngành học và trường đại học.',
+                },
+                {
+                  icon: <Target size={24} className="text-white" />,
+                  num: '03',
+                  title: 'Nhận kết quả',
+                  desc: 'Nhận báo cáo chi tiết về ngành học phù hợp nhất và danh sách các trường đại học tối ưu.',
+                },
               ].map((step, i) => (
                 <div key={i} className="relative group">
-                  <div className="h-full flex flex-col p-8 rounded-3xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 hover:border-primary/50 transition-all duration-300 shadow-xl shadow-slate-200/50 dark:shadow-none">
-                    <div className="w-14 h-14 bg-primary text-white rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-primary/30 group-hover:scale-110 transition-transform">
-                      <MatIcon name={step.icon} className="text-3xl" />
+                  <div className="h-full flex flex-col p-7 rounded-xl bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 hover:border-primary-400 dark:hover:border-primary-600 transition-colors shadow-card">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="w-11 h-11 bg-primary-600 rounded-lg flex items-center justify-center shadow-sm">
+                        {step.icon}
+                      </div>
+                      <span className="text-4xl font-black text-slate-100 dark:text-navy-800 select-none">
+                        {step.num}
+                      </span>
                     </div>
-                    <span className="text-primary font-black text-5xl opacity-10 absolute top-8 right-8 select-none">{step.num}</span>
-                    <h3 className="text-2xl font-bold mb-4">{step.title}</h3>
-                    <p className="text-slate-600 dark:text-slate-400 leading-relaxed">{step.desc}</p>
+                    <h3 className="text-lg font-bold mb-3 text-slate-900 dark:text-white">{step.title}</h3>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">{step.desc}</p>
                   </div>
                 </div>
               ))}
@@ -151,24 +225,27 @@ export const Home = () => {
           </div>
         </section>
 
-        {/* ─── Personalization ───────────────────────────────────── */}
-        <section className="py-20 bg-background-dark text-white rounded-[3rem] mx-4 sm:mx-8">
+        {/* ─── Features ─────────────────────────────────────────── */}
+        <section className="py-20 bg-navy-950 text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div>
-                <h2 className="text-3xl md:text-5xl font-black mb-8 leading-tight">
-                  Cá nhân hóa tối đa cho <span className="text-primary">mỗi học sinh</span>
+                <h2 className="text-3xl md:text-4xl font-black mb-8 leading-tight">
+                  Cá nhân hóa tối đa cho{' '}
+                  <span className="text-primary-400">mỗi học sinh</span>
                 </h2>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-5">
                   {[
-                    { icon: <Heart className="text-primary w-5 h-5" />, title: 'Sở thích', desc: 'Khám phá đam mê và sở trường tiềm ẩn của bản thân.' },
-                    { icon: <Sparkle className="text-primary w-5 h-5" />,  title: 'Điểm số',  desc: 'Phân tích học lực để chọn trường vừa sức, an toàn.' },
-                    { icon: <Banknote className="text-primary w-5 h-5" />, title: 'Học phí',  desc: 'Gợi ý các trường phù hợp với điều kiện kinh tế gia đình.' },
-                    { icon: <MapPin className="text-primary w-5 h-5" />,   title: 'Khoảng cách', desc: 'Lựa chọn môi trường học tập tại vị trí thuận lợi nhất.' },
+                    { icon: <Brain size={18} className="text-primary-400" />, title: 'Tính cách', desc: 'Phân tích MBTI & RIASEC để hiểu bạn là ai.' },
+                    { icon: <TrendingUp size={18} className="text-primary-400" />, title: 'Học lực', desc: 'Đối chiếu điểm số để chọn trường phù hợp.' },
+                    { icon: <GraduationCap size={18} className="text-primary-400" />, title: 'Trường học', desc: 'Gợi ý trường đại học tốt nhất cho bạn.' },
+                    { icon: <MessageSquare size={18} className="text-primary-400" />, title: 'AI Tư vấn', desc: 'Chat trực tiếp với AI Advisor 24/7.' },
                   ].map((item, i) => (
-                    <div key={i} className="flex flex-col gap-3">
-                      <div className="bg-primary/20 p-3 rounded-xl w-fit">{item.icon}</div>
-                      <h4 className="font-bold text-lg">{item.title}</h4>
+                    <div key={i} className="flex flex-col gap-2.5">
+                      <div className="w-9 h-9 bg-primary-600/20 border border-primary-500/30 rounded-lg flex items-center justify-center">
+                        {item.icon}
+                      </div>
+                      <h4 className="font-semibold text-white">{item.title}</h4>
                       <p className="text-slate-400 text-sm leading-relaxed">{item.desc}</p>
                     </div>
                   ))}
@@ -176,16 +253,16 @@ export const Home = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl mt-8">
+                <div className="aspect-[3/4] rounded-xl overflow-hidden border border-navy-700 mt-8">
                   <img
-                    alt="Sinh viên đang học tập"
+                    alt="Sinh viên học tập"
                     className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
                     src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkvc7L_m3TycX89AwgDNjufBaSSgrnUTR2b62-LM7Ohstz9wPYB51A2n36IvIiR5E1FIHFHgsTzcgHa9ZdTKrypSOPsDHWkKoRmYyNUZGVQgnyaYrV-ucCaNqkZdL1vaMYADwMYdtJtrK362GkEqUf20FSQsjPvC3nHjRYVNlAa69OvgFzCo_AInhV5sffbFmxQ1MyOkhAdq-Fljl7trRpJgY0W7WnN1i10_M1tTtdNf8C2JuMttbf0_T4V2why96A0FsAJlG1fNMg"
                   />
                 </div>
-                <div className="aspect-[3/4] rounded-2xl overflow-hidden shadow-2xl">
+                <div className="aspect-[3/4] rounded-xl overflow-hidden border border-navy-700">
                   <img
-                    alt="Khuôn viên trường đại học"
+                    alt="Khuôn viên đại học"
                     className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-700"
                     src="https://lh3.googleusercontent.com/aida-public/AB6AXuBoLJasN0OG4IGxNUUi1Tx00hOuiuSh01Dp8hzF3jIUkByq6aWiSb9dYJwgGzdO4fQxDeBmwkoVoyHeGlZ-O-9LwaPYvmJkRZ1ibegCDczGCT4XAd2bYU7FAJ0LplKyCuUdvRpSO_3-B5cKwGpGy5aV7fw2OrqouBnUJddr_bjCmagdT--0h-bP7BI37f_uG9FkL6jsTQaZ3CnAUOCN2aXpNNhJhIKcUHPi5-aOzfqUmlbomPH_SGDVgl1WXiIbtgkf8mKse-dQj9UD"
                   />
@@ -195,34 +272,39 @@ export const Home = () => {
           </div>
         </section>
 
-        {/* ─── For Universities ──────────────────────────────────── */}
-        <section className="py-24" id="universities">
+        {/* ─── For Universities ─────────────────────────────────── */}
+        <section className="py-20 bg-white dark:bg-navy-950" id="universities">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-primary/5 rounded-[2.5rem] p-8 md:p-16 border border-primary/10 overflow-hidden relative">
-              <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none select-none">
-                <MatIcon name="account_balance" className="text-[200px]" />
-              </div>
-              <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center">
-                <div className="flex flex-col gap-6">
-                  <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white">
-                    Dành cho các trường Đại học & Cao đẳng
+            <div className="rounded-2xl border border-primary-200 dark:border-primary-800/50 bg-primary-50 dark:bg-primary-900/10 p-10 md:p-14 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-primary-100 dark:bg-primary-800/10 rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+              <div className="relative grid md:grid-cols-2 gap-10 items-center">
+                <div>
+                  <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white mb-4">
+                    Dành cho các trường Đại học
                   </h2>
-                  <p className="text-lg text-slate-600 dark:text-slate-400">
-                    Kết nối trực tiếp với những học sinh tiềm năng và phù hợp nhất với tiêu chí tuyển sinh của nhà trường. Gia tăng tỷ lệ nhập học đúng ngành.
+                  <p className="text-slate-600 dark:text-slate-400 mb-7 leading-relaxed">
+                    Kết nối trực tiếp với những học sinh tiềm năng phù hợp nhất với tiêu chí tuyển sinh. Gia tăng tỷ lệ nhập học đúng ngành.
                   </p>
-                  <div className="flex flex-wrap gap-4">
-                    <button className="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-primary/90 hover:shadow-lg transition-all">Hợp tác ngay</button>
-                    <button className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-8 py-3 rounded-xl font-bold hover:bg-slate-50 transition-all">Xem giải pháp</button>
+                  <div className="flex flex-wrap gap-3">
+                    <Link
+                      to="/register"
+                      className="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-colors"
+                    >
+                      Hợp tác ngay
+                    </Link>
+                    <button className="px-6 py-2.5 border border-slate-300 dark:border-navy-600 text-slate-700 dark:text-slate-300 font-semibold rounded-lg hover:bg-slate-50 dark:hover:bg-navy-800 transition-colors">
+                      Xem giải pháp
+                    </button>
                   </div>
                 </div>
                 <div className="hidden md:grid grid-cols-2 gap-4">
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm">
-                    <p className="text-primary text-2xl font-black mb-1">500+</p>
-                    <p className="text-slate-500 text-sm font-medium">Đối tác giáo dục</p>
+                  <div className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 p-6 rounded-xl">
+                    <p className="text-primary-600 text-2xl font-black mb-1">500+</p>
+                    <p className="text-slate-500 text-sm">Đối tác giáo dục</p>
                   </div>
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm mt-8">
-                    <p className="text-primary text-2xl font-black mb-1">10k+</p>
-                    <p className="text-slate-500 text-sm font-medium">Hồ sơ/tháng</p>
+                  <div className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 p-6 rounded-xl mt-6">
+                    <p className="text-primary-600 text-2xl font-black mb-1">10k+</p>
+                    <p className="text-slate-500 text-sm">Hồ sơ/tháng</p>
                   </div>
                 </div>
               </div>
@@ -230,38 +312,33 @@ export const Home = () => {
           </div>
         </section>
 
-        {/* ─── Final CTA ─────────────────────────────────────────── */}
-        <section className="py-20">
-          <div className="max-w-5xl mx-auto px-4 text-center">
+        {/* ─── Final CTA ────────────────────────────────────────── */}
+        <section className="py-20 bg-slate-50 dark:bg-background-dark">
+          <div className="max-w-3xl mx-auto px-4 text-center">
             <motion.div
-              initial="hidden" whileInView="show" viewport={{ once: true }}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
               variants={fadeUp}
-              className="flex flex-col gap-8 items-center"
+              className="flex flex-col gap-6 items-center"
             >
-              <h2 className="text-4xl md:text-5xl font-black leading-tight tracking-tight">
+              <h2 className="text-3xl md:text-4xl font-black text-slate-900 dark:text-white leading-tight">
                 Bạn đã sẵn sàng cho hành trình tương lai chưa?
               </h2>
-              <p className="text-xl text-slate-600 dark:text-slate-400 max-w-2xl">
-                Tham gia cùng hơn 50,000 học sinh lớp 12 đã tìm thấy con đường sự nghiệp lý tưởng cùng EduMatch.
+              <p className="text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
+                Tham gia cùng hơn 50,000 học sinh đã tìm thấy con đường sự nghiệp lý tưởng cùng EduMatch.
               </p>
               <Link
                 to="/register"
-                className="bg-primary hover:bg-primary/90 text-white px-12 py-5 rounded-2xl text-xl font-black transition-all shadow-2xl shadow-primary/30 hover:scale-105 active:scale-95"
+                className="flex items-center gap-2 px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-colors shadow-lg group"
               >
-                Bắt đầu định hướng ngay – Miễn phí!
+                Bắt đầu định hướng ngay – Miễn phí
+                <ArrowRight size={18} className="group-hover:translate-x-0.5 transition-transform" />
               </Link>
             </motion.div>
           </div>
         </section>
       </main>
-
-      <style>{`
-        @keyframes bounce-slow {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
-        }
-        .animate-bounce-slow { animation: bounce-slow 3s ease-in-out infinite; }
-      `}</style>
     </>
   );
 };

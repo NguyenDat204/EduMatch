@@ -1,5 +1,5 @@
-import React from 'react';
-import { MapPin, Star, ExternalLink } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { MapPin, ExternalLink } from 'lucide-react';
 import type { University } from '../../types';
 
 interface UniversityCardProps {
@@ -7,43 +7,62 @@ interface UniversityCardProps {
 }
 
 export const UniversityCard: React.FC<UniversityCardProps> = ({ university }) => {
+  const navigate = useNavigate();
+
   return (
-    <div className="group relative overflow-hidden glass rounded-2xl p-4 hover:shadow-premium-hover transition-all duration-500">
-      <div className="aspect-[16/9] rounded-xl overflow-hidden mb-4 relative">
-        <img 
-          src={university.logo} 
+    <div
+      className="group bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl overflow-hidden hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-card-hover transition-all duration-200 cursor-pointer shadow-card"
+      onClick={() => navigate(`/universities/${university.id}`)}
+    >
+      {/* Logo area */}
+      <div className="h-32 bg-slate-50 dark:bg-navy-800 flex items-center justify-center p-4 border-b border-slate-100 dark:border-navy-700">
+        <img
+          src={university.logo}
           alt={university.name}
-          className="w-full h-full object-contain p-4 group-hover:scale-110 transition-transform duration-700"
+          className="max-h-20 max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
         />
-        <div className="absolute top-2 right-2 px-3 py-1 glass rounded-full text-xs font-bold text-primary-600">
-          {university.ranking}
-        </div>
       </div>
 
-      <div className="px-2 pb-2">
-        <h3 className="font-bold text-lg mb-1 group-hover:text-primary-600 transition-colors">{university.name}</h3>
-        <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-sm mb-4">
-          <MapPin size={14} />
-          {university.location}
+      <div className="p-4">
+        {/* Ranking badge */}
+        <div className="flex items-start justify-between mb-2">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-primary-600 transition-colors leading-snug flex-1 mr-2">
+            {university.name}
+          </h3>
+          <span className="text-[10px] font-semibold text-primary-600 bg-primary-50 dark:bg-primary-900/30 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+            {university.ranking}
+          </span>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 mb-6">
-          {university.programs.map((program) => (
-            <span key={program} className="px-2 py-0.5 border border-slate-200 dark:border-slate-800 rounded-full text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-3">
+          <MapPin size={12} />
+          <span>{university.location}</span>
+        </div>
+
+        {/* Programs */}
+        <div className="flex flex-wrap gap-1 mb-4">
+          {university.programs.slice(0, 3).map((program) => (
+            <span key={program} className="px-2 py-0.5 border border-slate-200 dark:border-navy-600 rounded-md text-[10px] font-medium text-slate-500 dark:text-slate-400">
               {program}
             </span>
           ))}
+          {university.programs.length > 3 && (
+            <span className="px-2 py-0.5 border border-slate-200 dark:border-navy-600 rounded-md text-[10px] font-medium text-slate-400">
+              +{university.programs.length - 3}
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
-          <button className="text-primary-600 dark:text-primary-400 font-bold text-sm flex items-center gap-1.5 group/btn">
-            Admission Details
-            <ExternalLink size={14} className="group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
-          </button>
-          <div className="flex items-center gap-1 text-amber-500">
-            <Star size={14} fill="currentColor" />
-            <span className="text-xs font-bold">4.8</span>
-          </div>
+        <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-navy-700">
+          <span className="text-xs font-medium text-primary-600 flex items-center gap-1">
+            Xem chi tiết
+            <ExternalLink size={11} />
+          </span>
+          {university.tuitionFee && (
+            <span className="text-xs text-slate-500">
+              {(university.tuitionFee / 1_000_000).toFixed(0)}tr/năm
+            </span>
+          )}
         </div>
       </div>
     </div>

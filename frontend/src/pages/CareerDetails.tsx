@@ -6,13 +6,11 @@ import {
   Clock, 
   CheckCircle2, 
   Sparkles,
-  Zap,
-  ChevronRight,
   ArrowRight,
   Heart,
   Loader2
 } from 'lucide-react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../layouts';
 import { useAuth } from '../hooks/useAuth';
 import { careerService } from '../services/api';

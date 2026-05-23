@@ -22,17 +22,24 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  data: User;
+  token: string;
+}
+
 // ─── AUTH SERVICES ──────────────────────────────────────────
 export const authService = {
-  login: async (email: string, password: string): Promise<ApiResponse<{ data: User; token: string }>> => {
+  login: async (email: string, password: string): Promise<AuthResponse> => {
     const response = await apiClient.post('/auth/login', { email, password });
     return response.data;
   },
-  register: async (name: string, email: string, password: string, school?: string, role?: string): Promise<ApiResponse<{ data: User; token: string }>> => {
+  register: async (name: string, email: string, password: string, school?: string, role?: string): Promise<AuthResponse> => {
     const response = await apiClient.post('/auth/register', { name, email, password, school, role });
     return response.data;
   },
-  loginViaGoogle: async (email: string, name: string, avatar?: string): Promise<ApiResponse<{ data: User; token: string }>> => {
+  loginViaGoogle: async (email: string, name: string, avatar?: string): Promise<AuthResponse> => {
     const response = await apiClient.post('/auth/google', { email, name, avatar });
     return response.data;
   },
@@ -66,6 +73,10 @@ export const profileService = {
   },
   updateSkillEvaluation: async (scores: Record<string, number>): Promise<ApiResponse<any>> => {
     const response = await apiClient.put('/profile/skills', { scores });
+    return response.data;
+  },
+  upgradeToPro: async (): Promise<ApiResponse<User>> => {
+    const response = await apiClient.post('/profile/upgrade');
     return response.data;
   },
 };

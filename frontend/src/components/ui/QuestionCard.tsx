@@ -9,23 +9,32 @@ interface QuestionCardProps {
   onScaleChange?: (value: number) => void;
 }
 
-export const QuestionCard: React.FC<QuestionCardProps> = ({ 
-  question, 
-  selectedOption, 
+const categoryLabel: Record<string, string> = {
+  personality: 'Tính cách',
+  interest:    'Sở thích',
+  skill:       'Kỹ năng',
+};
+
+export const QuestionCard: React.FC<QuestionCardProps> = ({
+  question,
+  selectedOption,
   onSelect,
-  onScaleChange 
+  onScaleChange,
 }) => {
   return (
-    <div className="glass p-8 rounded-3xl animate-fade-in shadow-premium-hover border-none bg-white dark:bg-slate-900">
-      <div className="mb-8">
-        <span className="px-4 py-1.5 bg-primary-50 dark:bg-primary-950/30 text-primary-600 dark:text-primary-400 rounded-full text-xs font-bold uppercase tracking-widest">
-          Phần: {question.category === 'personality' ? 'Tính cách' : question.category === 'interest' ? 'Sở thích' : 'Kỹ năng'}
-        </span>
-        <h2 className="text-2xl font-bold mt-4 leading-tight text-slate-800 dark:text-slate-100">{question.text}</h2>
-      </div>
+    <div className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-2xl p-7 shadow-card animate-fade-in">
+      {/* Category badge */}
+      <span className="inline-flex items-center px-2.5 py-1 bg-primary-50 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 rounded-full text-xs font-semibold uppercase tracking-wider mb-5">
+        {categoryLabel[question.category] || question.category}
+      </span>
 
+      <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-6 leading-snug">
+        {question.text}
+      </h2>
+
+      {/* Choice type */}
       {question.type === 'choice' && question.options && (
-        <div className="grid grid-cols-1 gap-4">
+        <div className="space-y-2.5">
           {question.options.map((option) => {
             const isSelected = selectedOption === option;
             return (
@@ -34,22 +43,20 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 type="button"
                 onClick={() => onSelect(option)}
                 className={cn(
-                  "group w-full p-5 rounded-2xl text-left font-medium transition-all duration-300 border-2",
+                  'w-full p-4 rounded-xl text-left text-sm font-medium transition-all duration-200 border-2 flex items-center justify-between',
                   isSelected
-                    ? "bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20 scale-[1.01]"
-                    : "bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700/60 text-slate-600 dark:text-slate-400 hover:border-primary-450 hover:bg-primary-50/30 dark:hover:bg-primary-900/10"
+                    ? 'bg-primary-600 border-primary-600 text-white'
+                    : 'bg-slate-50 dark:bg-navy-800 border-slate-200 dark:border-navy-600 text-slate-700 dark:text-slate-300 hover:border-primary-400 hover:bg-primary-50/50 dark:hover:bg-primary-900/10'
                 )}
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm">{option}</span>
-                  <div className={cn(
-                    "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all",
-                    isSelected ? "bg-white border-white" : "border-slate-200 dark:border-slate-600"
-                  )}>
-                    {isSelected && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-primary-600 animate-fade-in" />
-                    )}
-                  </div>
+                <span>{option}</span>
+                <div
+                  className={cn(
+                    'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all',
+                    isSelected ? 'border-white bg-white' : 'border-slate-300 dark:border-navy-500'
+                  )}
+                >
+                  {isSelected && <div className="w-2 h-2 rounded-full bg-primary-600" />}
                 </div>
               </button>
             );
@@ -57,11 +64,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         </div>
       )}
 
+      {/* Scale type */}
       {question.type === 'scale' && (
-        <div className="space-y-6 py-4">
-          <div className="grid grid-cols-5 gap-3">
+        <div className="space-y-4">
+          <div className="grid grid-cols-5 gap-2">
             {[1, 2, 3, 4, 5].map((val) => {
-              const labels = ['Rất thấp', 'Thấp', 'Trung bình', 'Cao', 'Rất cao'];
+              const labels    = ['Rất thấp', 'Thấp', 'TB', 'Cao', 'Rất cao'];
               const isSelected = String(selectedOption) === String(val);
               return (
                 <button
@@ -69,21 +77,23 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   type="button"
                   onClick={() => onScaleChange?.(val)}
                   className={cn(
-                    "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all duration-300 font-bold",
+                    'flex flex-col items-center justify-center py-3.5 rounded-xl border-2 transition-all duration-200 font-bold',
                     isSelected
-                      ? "bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20 scale-105"
-                      : "bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700/60 text-slate-550 dark:text-slate-400 hover:border-primary-400 hover:bg-primary-50/30"
+                      ? 'bg-primary-600 border-primary-600 text-white scale-105'
+                      : 'bg-slate-50 dark:bg-navy-800 border-slate-200 dark:border-navy-600 text-slate-600 dark:text-slate-400 hover:border-primary-400'
                   )}
                 >
-                  <span className="text-xl mb-1">{val}</span>
-                  <span className="text-[10px] uppercase font-bold tracking-wider opacity-80">{labels[val - 1]}</span>
+                  <span className="text-lg">{val}</span>
+                  <span className="text-[9px] uppercase font-semibold tracking-wider mt-0.5 opacity-80">
+                    {labels[val - 1]}
+                  </span>
                 </button>
               );
             })}
           </div>
-          <div className="flex justify-between text-xs font-bold text-slate-400 uppercase tracking-widest px-2">
-            <span>Rất thấp / Không có</span>
-            <span>Rất cao / Vững vàng</span>
+          <div className="flex justify-between text-xs font-medium text-slate-400 px-1">
+            <span>Rất thấp</span>
+            <span>Rất cao</span>
           </div>
         </div>
       )}

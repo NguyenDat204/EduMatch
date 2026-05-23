@@ -26,7 +26,11 @@ const UniversityDetails = lazy(() => import('../pages/UniversityDetails').then(m
 const CompareCareer    = lazy(() => import('../pages/CompareCareer').then(m => ({ default: m.CompareCareer })));
 const FavoriteCareer   = lazy(() => import('../pages/FavoriteCareer').then(m => ({ default: m.FavoriteCareer })));
 const CareerPath       = lazy(() => import('../pages/CareerPath').then(m => ({ default: m.CareerPath })));
-const Articles         = lazy(() => import('../pages/Articles').then(m => ({ default: m.Articles })));
+
+// NOTE: Articles removed from MVP student-first
+
+const ManageUniversity = lazy(() => import('../pages/ManageUniversity').then(m => ({ default: m.ManageUniversity })));
+
 
 // ─── Admin Pages ──────────────────────────────────────────────
 const AdminLayout = lazy(() => import('../layouts/AdminLayout').then(m => ({ default: m.AdminLayout })));
@@ -67,12 +71,13 @@ export const AppRoutes = () => (
       <Route path="/universities/:id" element={<UniversityDetails />} />
       <Route path="/chat" element={<Chat />} />
       <Route path="/upgrade" element={<Upgrade />} />
+      <Route path="/university/manage" element={<ManageUniversity />} />
       
       {/* ── New Exploration Pages ── */}
       <Route path="/compare" element={<CompareCareer />} />
       <Route path="/favorites" element={<FavoriteCareer />} />
       <Route path="/career-path/:id" element={<CareerPath />} />
-      <Route path="/articles" element={<Articles />} />
+
 
       {/* ── Admin Pages (with AdminLayout) ── */}
       <Route path="/admin" element={<AdminLayout />}>

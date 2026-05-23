@@ -3,15 +3,16 @@ import { NavLink, useNavigate, Outlet } from 'react-router-dom';
 import {
   Users,
   Briefcase,
-  BarChart,
+  BarChart2,
   MessageSquare,
   LogOut,
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
-  School
+  School,
+  GraduationCap,
 } from 'lucide-react';
-import { cn } from '../utils';
+import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 
 export const AdminLayout = () => {
@@ -20,11 +21,11 @@ export const AdminLayout = () => {
   const { logout } = useAuth();
 
   const navItems = [
-    { icon: Users, label: 'Quản lý Người dùng', path: '/admin/users' },
-    { icon: Briefcase, label: 'Quản lý Nghề nghiệp', path: '/admin/careers' },
-    { icon: School, label: 'Quản lý Trường học', path: '/admin/universities' },
-    { icon: BarChart, label: 'Thống kê & Báo cáo', path: '/admin/analytics' },
-    { icon: MessageSquare, label: 'Phản hồi', path: '/admin/feedback' },
+    { icon: BarChart2,     label: 'Thống kê',          path: '/admin/analytics' },
+    { icon: Users,         label: 'Người dùng',         path: '/admin/users' },
+    { icon: Briefcase,     label: 'Ngành nghề',         path: '/admin/careers' },
+    { icon: School,        label: 'Trường học',         path: '/admin/universities' },
+    { icon: MessageSquare, label: 'Phản hồi',           path: '/admin/feedback' },
   ];
 
   const handleLogout = () => {
@@ -33,73 +34,84 @@ export const AdminLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex text-slate-900 dark:text-slate-100 font-sans">
+    <div className="min-h-screen bg-slate-100 dark:bg-navy-950 flex text-slate-900 dark:text-slate-100">
       {/* Admin Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-screen bg-slate-900 text-slate-300 border-r border-slate-800 z-40 transition-all duration-300 flex flex-col",
-          isCollapsed ? "w-20" : "w-64"
+          'fixed left-0 top-0 h-screen bg-navy-950 border-r border-navy-800 z-40 transition-all duration-300 flex flex-col',
+          isCollapsed ? 'w-16' : 'w-56'
         )}
       >
-        <div className="flex flex-col h-full py-6">
-          <div className="px-6 mb-10 flex items-center justify-between">
+        <div className="flex flex-col h-full py-4">
+          {/* Logo */}
+          <div className={cn('flex items-center mb-6 px-3', isCollapsed ? 'justify-center' : 'justify-between')}>
             {!isCollapsed && (
-              <div className="flex items-center gap-2 text-white">
-                <ShieldCheck className="text-primary-500" />
-                <span className="text-xl font-bold tracking-wider">
-                  Admin
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 bg-primary-600 rounded-md flex items-center justify-center">
+                  <GraduationCap size={15} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white leading-none">EduMatch</p>
+                  <p className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
+                    <ShieldCheck size={10} /> Admin
+                  </p>
+                </div>
               </div>
             )}
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
-              className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              className={cn(
+                'p-1.5 rounded-md text-slate-500 hover:text-white hover:bg-navy-800 transition-colors',
+                isCollapsed && 'mx-auto'
+              )}
             >
-              {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+              {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
             </button>
           </div>
 
-          <nav className="flex-1 px-4 space-y-2">
+          {/* Nav */}
+          <nav className="flex-1 px-2 space-y-0.5">
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
-                className={({ isActive }) => cn(
-                  "flex items-center gap-4 px-4 py-3 rounded-xl transition-all group",
-                  isActive
-                    ? "bg-primary-600 text-white shadow-lg shadow-primary-500/20"
-                    : "hover:bg-slate-800 hover:text-white"
-                )}
+                title={isCollapsed ? item.label : undefined}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium',
+                    isActive
+                      ? 'bg-primary-600 text-white'
+                      : 'text-slate-400 hover:bg-navy-800 hover:text-white',
+                    isCollapsed && 'justify-center px-0'
+                  )
+                }
               >
-                <item.icon size={22} className={cn("shrink-0", !isCollapsed && "group-hover:scale-110 transition-transform")} />
-                {!isCollapsed && <span className="font-medium">{item.label}</span>}
+                <item.icon size={18} className="shrink-0" />
+                {!isCollapsed && <span>{item.label}</span>}
               </NavLink>
             ))}
           </nav>
 
-          <div className="px-4 mt-auto">
+          {/* Logout */}
+          <div className="px-2 mt-4 pt-4 border-t border-navy-800">
             <button
               onClick={handleLogout}
+              title={isCollapsed ? 'Đăng xuất' : undefined}
               className={cn(
-                "flex items-center gap-4 px-4 py-3 rounded-xl transition-all text-red-400 hover:bg-red-500/10 w-full",
-                isCollapsed && "justify-center px-0"
+                'flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors',
+                isCollapsed && 'justify-center px-0'
               )}
             >
-              <LogOut size={22} />
-              {!isCollapsed && <span className="font-medium">Đăng xuất</span>}
+              <LogOut size={18} />
+              {!isCollapsed && <span>Đăng xuất</span>}
             </button>
           </div>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main
-        className={cn(
-          "flex-1 transition-all duration-300 min-h-screen",
-          isCollapsed ? "ml-20" : "ml-64"
-        )}
-      >
-        <div className="p-8">
+      {/* Main Content */}
+      <main className={cn('flex-1 transition-all duration-300 min-h-screen', isCollapsed ? 'ml-16' : 'ml-56')}>
+        <div className="p-6">
           <Outlet />
         </div>
       </main>

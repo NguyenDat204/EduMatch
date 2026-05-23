@@ -1,54 +1,59 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Compass, 
-  GraduationCap, 
-  MessageSquare, 
-  User, 
+import {
+  LayoutDashboard,
+  Compass,
+  GraduationCap,
+  MessageSquare,
+  User,
   CreditCard,
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Scale,
-  Heart,
-  BookOpen,
-  Book,
   Target,
-  Sparkles
+  Sparkles,
+  BookOpen,
+  Building2,
+  GraduationCap as Logo,
 } from 'lucide-react';
-import { cn } from '../utils';
+import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 
 export const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const navGroups = [
     {
       group: 'Khám phá',
       items: [
-        { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-        { icon: Sparkles, label: 'Trắc nghiệm hướng nghiệp', path: '/survey' },
-        { icon: Compass, label: 'Khám phá nghề nghiệp', path: '/explore' },
-        { icon: Scale, label: 'So sánh nghề nghiệp', path: '/compare' },
-        { icon: GraduationCap, label: 'Điểm sàn Đại học', path: '/universities' },
-        { icon: MessageSquare, label: 'AI Advisor', path: '/chat' },
-        { icon: BookOpen, label: 'Bài viết & Cẩm nang', path: '/articles' },
-      ]
+        { icon: LayoutDashboard, label: 'Tổng quan',             path: '/dashboard' },
+        { icon: Sparkles,        label: 'Trắc nghiệm hướng nghiệp', path: '/survey' },
+        { icon: Compass,         label: 'Khám phá',  path: '/explore' },
+        // { icon: GraduationCap,   label: 'Trường đại học',        path: '/universities' },
+        { icon: MessageSquare,   label: 'AI Tư vấn',             path: '/chat' },
+      ],
     },
     {
-      group: 'Hồ sơ của tôi',
+      group: 'Hồ sơ',
       items: [
-        { icon: User, label: 'Hồ sơ cá nhân', path: '/profile' },
-        { icon: Book, label: 'Hồ sơ học tập', path: '/academic-profile' },
-        { icon: Target, label: 'Đánh giá kỹ năng', path: '/skill-evaluation' },
-        { icon: Heart, label: 'Nghề nghiệp đã lưu', path: '/favorites' },
-        { icon: CreditCard, label: 'Gói đăng ký', path: '/upgrade' },
-      ]
-    }
+        { icon: User,     label: 'Hồ sơ cá nhân',  path: '/profile' },
+        { icon: BookOpen, label: 'Hồ sơ học tập',  path: '/academic-profile' },
+        { icon: Target,   label: 'Đánh giá kỹ năng', path: '/skill-evaluation' },
+        { icon: CreditCard, label: 'Nâng cấp Pro', path: '/upgrade' },
+      ],
+    },
   ];
+
+  if (user?.role === 'university') {
+    navGroups.push({
+      group: 'Quản lý',
+      items: [
+        { icon: Building2, label: 'Quản lý trường học', path: '/university/manage' },
+      ],
+    });
+  }
 
   const handleLogout = () => {
     logout();
@@ -56,49 +61,61 @@ export const Sidebar = () => {
   };
 
   return (
-    <aside 
+    <aside
       className={cn(
-        "fixed left-0 top-0 h-screen glass border-r z-40 transition-all duration-300 flex flex-col overflow-y-auto",
-        isCollapsed ? "w-20" : "w-64"
+        'fixed left-0 top-0 h-screen bg-navy-950 border-r border-navy-800 z-40 transition-all duration-300 flex flex-col overflow-y-auto no-scrollbar',
+        isCollapsed ? 'w-16' : 'w-60'
       )}
     >
-      <div className="flex flex-col min-h-full py-6">
-        <div className="px-6 mb-8 flex items-center justify-between shrink-0">
+      <div className="flex flex-col min-h-full py-4">
+        {/* Logo */}
+        <div className={cn('flex items-center mb-6 px-3', isCollapsed ? 'justify-center' : 'justify-between')}>
           {!isCollapsed && (
-            <span className="text-xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-600 to-secondary-600 uppercase tracking-wider">
-              EduMatch
-            </span>
+            <Link to="/dashboard" className="flex items-center gap-2.5">
+              <div className="w-7 h-7 bg-primary-600 rounded-md flex items-center justify-center shrink-0">
+                <Logo size={15} className="text-white" />
+              </div>
+              <span className="text-base font-bold text-white tracking-tight">EduMatch</span>
+            </Link>
           )}
-          <button 
+          <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary-600 transition-colors shrink-0 mx-auto"
+            className={cn(
+              'p-1.5 rounded-md text-slate-500 hover:text-white hover:bg-navy-800 transition-colors shrink-0',
+              isCollapsed && 'mx-auto'
+            )}
           >
-            {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+            {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
         </div>
 
-        <nav className="flex-1 px-4 space-y-6 shrink-0">
-          {navGroups.map((group, groupIdx) => (
-            <div key={groupIdx}>
+        {/* Nav */}
+        <nav className="flex-1 px-2 space-y-5">
+          {navGroups.map((group, gi) => (
+            <div key={gi}>
               {!isCollapsed && (
-                <div className="px-4 mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-600">
                   {group.group}
-                </div>
+                </p>
               )}
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {group.items.map((item) => (
                   <NavLink
                     key={item.path}
                     to={item.path}
-                    className={({ isActive }) => cn(
-                      "flex items-center gap-4 px-4 py-2.5 rounded-xl transition-all group",
-                      isActive 
-                        ? "bg-primary-600 text-white shadow-lg shadow-primary-500/20" 
-                        : "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-primary-600"
-                    )}
+                    title={isCollapsed ? item.label : undefined}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium',
+                        isActive
+                          ? 'bg-primary-600 text-white'
+                          : 'text-slate-400 hover:bg-navy-800 hover:text-white',
+                        isCollapsed && 'justify-center px-0'
+                      )
+                    }
                   >
-                    <item.icon size={20} className={cn("shrink-0", !isCollapsed && "group-hover:scale-110 transition-transform")} />
-                    {!isCollapsed && <span className="font-medium text-sm">{item.label}</span>}
+                    <item.icon size={18} className="shrink-0" />
+                    {!isCollapsed && <span>{item.label}</span>}
                   </NavLink>
                 ))}
               </div>
@@ -106,18 +123,37 @@ export const Sidebar = () => {
           ))}
         </nav>
 
-        <div className="px-4 mt-auto">
-          <button 
+        {/* User + Logout */}
+        <div className="px-2 mt-4 pt-4 border-t border-navy-800 space-y-1">
+          {!isCollapsed && user && (
+            <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
+              <img
+                src={user.avatar || `https://i.pravatar.cc/32?u=${user.email}`}
+                alt={user.name}
+                className="w-7 h-7 rounded-full object-cover border border-navy-700 shrink-0"
+              />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-white truncate">{user.name}</p>
+                <p className="text-[10px] text-slate-500 truncate">{user.email}</p>
+              </div>
+            </div>
+          )}
+          <button
             onClick={handleLogout}
+            title={isCollapsed ? 'Đăng xuất' : undefined}
             className={cn(
-            "flex items-center gap-4 px-4 py-3 w-full rounded-xl text-slate-500 hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-600 transition-all",
-            isCollapsed && "justify-center"
-          )}>
-            <LogOut size={22} />
-            {!isCollapsed && <span className="font-medium">Logout</span>}
+              'flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors',
+              isCollapsed && 'justify-center px-0'
+            )}
+          >
+            <LogOut size={18} className="shrink-0" />
+            {!isCollapsed && <span>Đăng xuất</span>}
           </button>
         </div>
       </div>
     </aside>
   );
 };
+
+// Need Link import
+import { Link } from 'react-router-dom';

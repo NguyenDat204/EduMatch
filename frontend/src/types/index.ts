@@ -46,6 +46,7 @@ export interface Question {
 }
 
 export interface User {
+  _id?: string;
   name: string;
   email: string;
   role: 'student' | 'admin' | 'university';
@@ -62,6 +63,17 @@ export interface User {
     school: string;
     grade: string;
     majorInterest: string;
+    subjects?: {
+      math: number;
+      physics: number;
+      chemistry: number;
+      english: number;
+      literature: number;
+      biology: number;
+      history: number;
+      geography: number;
+      [key: string]: number;
+    };
   };
   personalityTest?: {
     archetype?: string;

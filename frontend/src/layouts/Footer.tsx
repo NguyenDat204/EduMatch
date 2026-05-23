@@ -1,58 +1,72 @@
-import { Facebook, Mail, Phone } from 'lucide-react';
-
-const MatIcon = ({ name, className = '' }: { name: string; className?: string }) => (
-  <span className={`material-symbols-outlined ${className}`}>{name}</span>
-);
+import { Link } from 'react-router-dom';
+import { GraduationCap, Facebook, Mail, Phone } from 'lucide-react';
 
 export const Footer = () => {
   return (
-    <footer className="bg-white dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 pt-16 pb-8">
+    <footer className="bg-navy-950 text-slate-400 border-t border-navy-800 pt-14 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-4 gap-12 mb-16">
+        <div className="grid md:grid-cols-4 gap-10 mb-12">
+          {/* Brand */}
           <div>
-            <div className="flex items-center gap-2 mb-6">
-              <div className="bg-primary text-white p-1.5 rounded-lg">
-                <MatIcon name="school" />
+            <Link to="/" className="flex items-center gap-2.5 mb-4">
+              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                <GraduationCap size={18} className="text-white" />
               </div>
-              <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">EduMatch</span>
-            </div>
-            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
-              Nền tảng định hướng nghề nghiệp cá nhân hóa bằng AI hàng đầu Việt Nam. Đồng hành cùng sĩ tử chinh phục ước mơ.
+              <span className="text-lg font-bold text-white">EduMatch</span>
+            </Link>
+            <p className="text-sm leading-relaxed text-slate-500">
+              Nền tảng định hướng nghề nghiệp cá nhân hóa bằng AI dành cho học sinh Việt Nam.
             </p>
           </div>
 
+          {/* Links */}
           <div>
-            <h4 className="font-bold mb-6 text-slate-900 dark:text-white">Liên kết</h4>
-            <ul className="flex flex-col gap-4 text-sm text-slate-500 dark:text-slate-400">
+            <h4 className="text-sm font-semibold text-white mb-4">Liên kết</h4>
+            <ul className="space-y-3 text-sm">
               {['Về EduMatch', 'Dành cho học sinh', 'Cẩm nang tuyển sinh', 'Hợp tác trường học'].map(l => (
-                <li key={l}><a className="hover:text-primary transition-colors" href="#">{l}</a></li>
+                <li key={l}>
+                  <a href="#" className="hover:text-primary-400 transition-colors">{l}</a>
+                </li>
               ))}
             </ul>
           </div>
 
+          {/* Support */}
           <div>
-            <h4 className="font-bold mb-6 text-slate-900 dark:text-white">Hỗ trợ</h4>
-            <ul className="flex flex-col gap-4 text-sm text-slate-500 dark:text-slate-400">
+            <h4 className="text-sm font-semibold text-white mb-4">Hỗ trợ</h4>
+            <ul className="space-y-3 text-sm">
               {['Câu hỏi thường gặp', 'Trung tâm trợ giúp', 'Điều khoản dịch vụ', 'Chính sách bảo mật'].map(l => (
-                <li key={l}><a className="hover:text-primary transition-colors" href="#">{l}</a></li>
+                <li key={l}>
+                  <a href="#" className="hover:text-primary-400 transition-colors">{l}</a>
+                </li>
               ))}
             </ul>
           </div>
 
+          {/* Social */}
           <div>
-            <h4 className="font-bold mb-6 text-slate-900 dark:text-white">Kết nối</h4>
-            <div className="flex gap-4">
-              {[<Facebook className="w-5 h-5" />, <Mail className="w-5 h-5" />, <Phone className="w-5 h-5" />].map((icon, i) => (
-                <a key={i} href="#" className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-primary hover:text-white transition-all duration-300">
-                  {icon}
+            <h4 className="text-sm font-semibold text-white mb-4">Kết nối</h4>
+            <div className="flex gap-3">
+              {[
+                { icon: <Facebook size={16} />, label: 'Facebook' },
+                { icon: <Mail size={16} />, label: 'Email' },
+                { icon: <Phone size={16} />, label: 'Phone' },
+              ].map((item) => (
+                <a
+                  key={item.label}
+                  href="#"
+                  aria-label={item.label}
+                  className="w-9 h-9 rounded-lg bg-navy-800 hover:bg-primary-600 flex items-center justify-center transition-colors"
+                >
+                  {item.icon}
                 </a>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="pt-8 border-t border-slate-200 dark:border-slate-800 text-center text-slate-500 dark:text-slate-400 text-xs">
-          © 2024 EduMatch. All rights reserved. Made for Vietnamese Students.
+        <div className="pt-6 border-t border-navy-800 text-center text-xs text-slate-600">
+          © 2025 EduMatch. All rights reserved. Made for Vietnamese Students.
         </div>
       </div>
     </footer>

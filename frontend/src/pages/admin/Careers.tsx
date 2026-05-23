@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit2, Trash2, Loader2, X, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Search, Trash2, Loader2, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { careerService, adminService } from '../../services/api';
 
 export const Careers = () => {

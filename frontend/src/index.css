@@ -4,16 +4,15 @@
 
 @layer base {
   :root {
-    --primary: 221.2 83.2% 53.3%;
-    --secondary: 291.2 83.2% 53.3%;
+    --primary: 221 83% 53%;
   }
 
   * {
-    @apply border-slate-200 dark:border-slate-800;
+    @apply border-slate-200 dark:border-slate-700;
   }
 
   body {
-    @apply bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-slate-100 antialiased selection:bg-primary-100 dark:selection:bg-primary-900/30;
+    @apply bg-background-light dark:bg-background-dark font-sans text-slate-900 dark:text-slate-100 antialiased;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -22,40 +21,43 @@
 }
 
 @layer components {
-  .glass {
-    @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/20 dark:border-slate-800/20 shadow-premium;
+  /* Card surface — thay thế glass */
+  .card {
+    @apply bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 shadow-card rounded-xl;
   }
 
-  .premium-gradient {
-    @apply bg-gradient-to-br from-primary-600 via-primary-500 to-secondary-500;
+  /* Sidebar/header dark surface */
+  .surface-dark {
+    @apply bg-navy-950 dark:bg-navy-950 border-navy-800;
+  }
+
+  /* Primary gradient — chỉ dùng cho CTA chính, không dùng tràn lan */
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-semibold transition-colors;
+  }
+
+  /* Subtle gradient cho hero banner */
+  .hero-gradient {
+    @apply bg-gradient-to-br from-navy-900 via-navy-800 to-primary-800;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold;
   }
 
   .btn-transition {
-    @apply transition-all duration-300 ease-out active:scale-95;
+    @apply transition-all duration-200 ease-out active:scale-95;
   }
 }
 
 @layer utilities {
-  /* Hide scrollbar for Chrome, Safari and Opera */
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* Hide scrollbar for IE, Edge and Firefox */
-  .no-scrollbar {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-  }
-
-  .scrollbar-premium::-webkit-scrollbar {
-    @apply w-1.5;
-  }
-
-  .scrollbar-premium::-webkit-scrollbar-track {
-    @apply bg-transparent;
-  }
-
-  .scrollbar-premium::-webkit-scrollbar-thumb {
-    @apply bg-slate-200 dark:bg-slate-800 rounded-full hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors;
+  .scrollbar-thin::-webkit-scrollbar { @apply w-1; }
+  .scrollbar-thin::-webkit-scrollbar-track { @apply bg-transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-slate-300 dark:bg-navy-700 rounded-full;
   }
 }

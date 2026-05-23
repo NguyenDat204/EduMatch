@@ -1,7 +1,6 @@
 // Enhanced Dashboard Component with Analytics
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Card } from '../components/ui';
 import { 
   TrendingUp, 
   Brain, 
@@ -11,7 +10,7 @@ import {
 } from 'lucide-react';
 
 export const EnhancedDashboard = () => {
-  const [metrics, setMetrics] = useState({
+  const [metrics] = useState({
     assessmentProgress: 65,
     recommendationsGenerated: 3,
     favoriteCount: 5,
@@ -85,14 +84,14 @@ export const EnhancedDashboard = () => {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: idx * 0.1 }}
           >
-            <Card className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-shadow">
+            <div className="rounded-2xl p-6 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200 dark:border-slate-700 hover:shadow-lg transition-shadow">
               <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${card.color} flex items-center justify-center mb-4`}>
                 <card.icon className="w-6 h-6 text-white" />
               </div>
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">{card.title}</p>
               <p className="text-3xl font-bold text-slate-900 dark:text-white">{card.value}</p>
               <p className="text-xs text-slate-500 dark:text-slate-500 mt-2">{card.subtitle}</p>
-            </Card>
+            </div>
           </motion.div>
         ))}
       </div>
@@ -104,18 +103,18 @@ export const EnhancedDashboard = () => {
         transition={{ delay: 0.5 }}
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
-        <Card className="bg-gradient-to-br from-primary/20 to-secondary/20 border-primary/50 p-6 text-center cursor-pointer hover:shadow-lg transition-all">
+        <div className="rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 border border-primary/50 p-6 text-center cursor-pointer hover:shadow-lg transition-all">
           <h4 className="font-semibold text-primary mb-2">View Recommendations</h4>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             See 8 career paths recommended by AI based on your profile
           </p>
-        </Card>
-        <Card className="bg-gradient-to-br from-accent/20 to-green-500/20 border-accent/50 p-6 text-center cursor-pointer hover:shadow-lg transition-all">
+        </div>
+        <div className="rounded-2xl bg-gradient-to-br from-accent/20 to-green-500/20 border border-accent/50 p-6 text-center cursor-pointer hover:shadow-lg transition-all">
           <h4 className="font-semibold text-accent mb-2">Analyze Skill Gaps</h4>
           <p className="text-sm text-slate-600 dark:text-slate-400">
             See what skills you need to master your target career
           </p>
-        </Card>
+        </div>
       </motion.div>
     </div>
   );
