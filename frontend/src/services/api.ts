@@ -22,6 +22,19 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Global response handler: handle 401 by clearing token and reloading (forces re-auth)
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      try { localStorage.removeItem('edumatch_token'); } catch {}
+      // soft reload so the app can redirect to login
+      if (typeof window !== 'undefined') window.location.reload();
+    }
+    return Promise.reject(error);
+  }
+);
+
 export interface AuthResponse {
   success: boolean;
   message: string;
@@ -35,8 +48,8 @@ export const authService = {
     const response = await apiClient.post('/auth/login', { email, password });
     return response.data;
   },
-  register: async (name: string, email: string, password: string, school?: string, role?: string): Promise<AuthResponse> => {
-    const response = await apiClient.post('/auth/register', { name, email, password, school, role });
+  register: async (name: string, email: string, password: string, school?: string, role?: string, grade?: string, majorInterest?: string): Promise<AuthResponse> => {
+    const response = await apiClient.post('/auth/register', { name, email, password, school, role, grade, majorInterest });
     return response.data;
   },
   loginViaGoogle: async (email: string, name: string, avatar?: string): Promise<AuthResponse> => {
@@ -143,8 +156,61 @@ export const aiApiService = {
     const response = await apiClient.post('/recommendations', surveyData);
     return response.data;
   },
-  sendMessage: async (chatHistory: { role: string; content: string }[]): Promise<any> => {
-    const response = await apiClient.post('/chat', { chatHistory });
+  sendMessage: async (
+    chatHistory: { role: string; content: string }[],
+    conversationId?: string
+  ): Promise<any> => {
+    const response = await apiClient.post('/chat', { chatHistory, conversationId });
+    return response.data;
+  },
+  // Active conversation
+  getChatHistory: async (): Promise<any> => {
+    const response = await apiClient.get('/chat/history');
+    return response.data;
+  },
+  clearChatHistory: async (): Promise<any> => {
+    const response = await apiClient.delete('/chat/history');
+    return response.data;
+  },
+  // All conversations
+  getConversations: async (): Promise<any> => {
+    const response = await apiClient.get('/chat/conversations');
+    return response.data;
+  },
+  getConversationById: async (id: string): Promise<any> => {
+    const response = await apiClient.get(`/chat/conversations/${id}`);
+    return response.data;
+  },
+  renameConversation: async (id: string, title: string): Promise<any> => {
+    const response = await apiClient.patch(`/chat/conversations/${id}/rename`, { title });
+    return response.data;
+  },
+  deleteConversation: async (id: string): Promise<any> => {
+    const response = await apiClient.delete(`/chat/conversations/${id}`);
+    return response.data;
+  },
+};
+
+// ─── SURVEY HISTORY SERVICES ────────────────────────────────
+export const surveyHistoryService = {
+  save: async (answers: any, result: any, title?: string): Promise<any> => {
+    const response = await apiClient.post('/survey-history', { answers, result, title });
+    return response.data;
+  },
+  getAll: async (): Promise<any> => {
+    const response = await apiClient.get('/survey-history');
+    return response.data;
+  },
+  getById: async (id: string): Promise<any> => {
+    const response = await apiClient.get(`/survey-history/${id}`);
+    return response.data;
+  },
+  rename: async (id: string, title: string): Promise<any> => {
+    const response = await apiClient.patch(`/survey-history/${id}/rename`, { title });
+    return response.data;
+  },
+  delete: async (id: string): Promise<any> => {
+    const response = await apiClient.delete(`/survey-history/${id}`);
     return response.data;
   },
 };

@@ -30,7 +30,7 @@ export const Upgrade = () => {
     },
     {
       name: 'Pro Hướng nghiệp',
-      price: '199.000đ',
+      price: '49.000đ',
       period: '/tháng',
       desc: 'Làm chủ lộ trình sự nghiệp tương lai.',
       features: [
@@ -215,7 +215,7 @@ export const Upgrade = () => {
                     <p className="text-sm font-bold text-slate-900 dark:text-white">EduMatch Pro</p>
                     <p className="text-xs text-slate-400 mt-0.5">30 ngày (tự động gia hạn)</p>
                   </div>
-                  <span className="text-lg font-black text-primary-600">199.000đ</span>
+                  <span className="text-lg font-black text-primary-600">49.000đ</span>
                 </div>
 
                 {/* Method tabs */}

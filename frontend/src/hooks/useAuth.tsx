@@ -5,7 +5,7 @@ import { authService, profileService } from '../services/api';
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  register: (name: string, email: string, password: string, school?: string, role?: string) => Promise<void>;
+  register: (name: string, email: string, password: string, school?: string, role?: string, grade?: string, majorInterest?: string) => Promise<void>;
   loginViaGoogle: (email: string, name: string, avatar?: string) => Promise<void>;
   updateUserInState: (updatedUser: User) => void;
 }
@@ -84,10 +84,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const register = async (name: string, email: string, password: string, school?: string, role?: string) => {
+  const register = async (name: string, email: string, password: string, school?: string, role?: string, grade?: string, majorInterest?: string) => {
     setState(s => ({ ...s, isLoading: true }));
     try {
-      const response = await authService.register(name, email, password, school, role);
+      const response = await authService.register(name, email, password, school, role, grade, majorInterest);
       if (response.success && response.data && response.token) {
         localStorage.setItem('edumatch_token', response.token);
         setState({

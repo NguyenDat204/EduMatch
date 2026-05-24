@@ -176,7 +176,7 @@ const cancelSubscription = async (req, res) => {
         cancellationDate: new Date(),
         cancellationReason: reason,
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!subscription) {
@@ -244,7 +244,7 @@ const handlePaymentWebhook = async (req, res) => {
       {
         paymentStatus: status,
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (subscription && status === "completed") {

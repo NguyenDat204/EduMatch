@@ -3,29 +3,30 @@ import { Routes, Route } from 'react-router-dom';
 import { MainLayout } from '../layouts/MainLayout';
 
 // ─── Public Pages ─────────────────────────────────────────────
-const Home          = lazy(() => import('../pages/Home').then(m => ({ default: m.Home })));
-const Login         = lazy(() => import('../pages/Login').then(m => ({ default: m.Login })));
-const Register      = lazy(() => import('../pages/Register').then(m => ({ default: m.Register })));
+const Home = lazy(() => import('../pages/Home').then(m => ({ default: m.Home })));
+const Login = lazy(() => import('../pages/Login').then(m => ({ default: m.Login })));
+const Register = lazy(() => import('../pages/Register').then(m => ({ default: m.Register })));
 const ForgotPassword = lazy(() => import('../pages/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
 
 
 // ─── Assessment Pages ─────────────────────────────────────────
-const Survey          = lazy(() => import('../pages/Survey').then(m => ({ default: m.Survey })));
-const Result          = lazy(() => import('../pages/Result').then(m => ({ default: m.Result })));
+const Survey = lazy(() => import('../pages/Survey').then(m => ({ default: m.Survey })));
+const Result = lazy(() => import('../pages/Result').then(m => ({ default: m.Result })));
+const SurveyHistory = lazy(() => import('../pages/SurveyHistory').then(m => ({ default: m.SurveyHistory })));
 const AcademicProfile = lazy(() => import('../pages/AcademicProfile').then(m => ({ default: m.AcademicProfile })));
 const SkillEvaluation = lazy(() => import('../pages/SkillEvaluation').then(m => ({ default: m.SkillEvaluation })));
 
 // ─── Dashboard Pages ──────────────────────────────────────────
-const Dashboard        = lazy(() => import('../pages/Dashboard').then(m => ({ default: m.Dashboard })));
-const Profile          = lazy(() => import('../pages/Profile').then(m => ({ default: m.Profile })));
-const Explore          = lazy(() => import('../pages/Explore').then(m => ({ default: m.Explore })));
-const Chat             = lazy(() => import('../pages/Chat').then(m => ({ default: m.Chat })));
-const Upgrade          = lazy(() => import('../pages/Upgrade').then(m => ({ default: m.Upgrade })));
-const CareerDetails    = lazy(() => import('../pages/CareerDetails').then(m => ({ default: m.CareerDetails })));
+const Dashboard = lazy(() => import('../pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const Profile = lazy(() => import('../pages/Profile').then(m => ({ default: m.Profile })));
+const Explore = lazy(() => import('../pages/Explore').then(m => ({ default: m.Explore })));
+const Chat = lazy(() => import('../pages/Chat').then(m => ({ default: m.Chat })));
+const Upgrade = lazy(() => import('../pages/Upgrade').then(m => ({ default: m.Upgrade })));
+const CareerDetails = lazy(() => import('../pages/CareerDetails').then(m => ({ default: m.CareerDetails })));
 const UniversityDetails = lazy(() => import('../pages/UniversityDetails').then(m => ({ default: m.UniversityDetails })));
-const CompareCareer    = lazy(() => import('../pages/CompareCareer').then(m => ({ default: m.CompareCareer })));
-const FavoriteCareer   = lazy(() => import('../pages/FavoriteCareer').then(m => ({ default: m.FavoriteCareer })));
-const CareerPath       = lazy(() => import('../pages/CareerPath').then(m => ({ default: m.CareerPath })));
+const CompareCareer = lazy(() => import('../pages/CompareCareer').then(m => ({ default: m.CompareCareer })));
+const FavoriteCareer = lazy(() => import('../pages/FavoriteCareer').then(m => ({ default: m.FavoriteCareer })));
+const CareerPath = lazy(() => import('../pages/CareerPath').then(m => ({ default: m.CareerPath })));
 
 // NOTE: Articles removed from MVP student-first
 
@@ -59,6 +60,7 @@ export const AppRoutes = () => (
       {/* ── Assessment (self-managing layout) ── */}
       <Route path="/survey" element={<Survey />} />
       <Route path="/result" element={<Result />} />
+      <Route path="/survey-history" element={<SurveyHistory />} />
       <Route path="/academic-profile" element={<AcademicProfile />} />
       <Route path="/skill-evaluation" element={<SkillEvaluation />} />
 
@@ -72,7 +74,7 @@ export const AppRoutes = () => (
       <Route path="/chat" element={<Chat />} />
       <Route path="/upgrade" element={<Upgrade />} />
       <Route path="/university/manage" element={<ManageUniversity />} />
-      
+
       {/* ── New Exploration Pages ── */}
       <Route path="/compare" element={<CompareCareer />} />
       <Route path="/favorites" element={<FavoriteCareer />} />

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Calculator, Target, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
+import { BookOpen, Calculator, Target, ArrowRight, Loader2, CheckCircle2, MapPin } from 'lucide-react';
 import { DashboardLayout } from '../layouts';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { profileService } from '../services/api';
+import { PROVINCES, parseSchool, joinSchool } from '../lib/provinces';
 
 const subjectMeta = [
   { key: 'math',       label: 'Toán học' },
@@ -23,6 +24,7 @@ export const AcademicProfile = () => {
   const [success, setSuccess]     = useState(false);
 
   const [school, setSchool]               = useState('');
+  const [province, setProvince]           = useState('');
   const [grade, setGrade]                 = useState('12');
   const [majorInterest, setMajorInterest] = useState('');
   const [subjects, setSubjects] = useState({
@@ -32,7 +34,9 @@ export const AcademicProfile = () => {
 
   useEffect(() => {
     if (user?.academicInfo) {
-      setSchool(user.academicInfo.school || '');
+      const { schoolName, province: prov } = parseSchool(user.academicInfo.school || '');
+      setSchool(schoolName);
+      setProvince(prov);
       setGrade(user.academicInfo.grade || '12');
       setMajorInterest(user.academicInfo.majorInterest || '');
       if (user.academicInfo.subjects) {
@@ -55,10 +59,11 @@ export const AcademicProfile = () => {
     setIsLoading(true);
     setSuccess(false);
     try {
-      const response = await profileService.updateAcademicProfile(school, grade, majorInterest, subjects);
+      const schoolFull = joinSchool(school, province);
+      const response = await profileService.updateAcademicProfile(schoolFull, grade, majorInterest, subjects);
       if (response.success && response.data) {
         if (user) {
-          updateUserInState({ ...user, academicInfo: { school, grade, majorInterest, subjects } });
+          updateUserInState({ ...user, academicInfo: { school: schoolFull, grade, majorInterest, subjects } });
         }
         setSuccess(true);
         setTimeout(() => navigate('/profile'), 1200);
@@ -106,7 +111,8 @@ export const AcademicProfile = () => {
               <Calculator size={15} className="text-primary-600" />
               Thông tin trường lớp
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-4">
+              {/* Row 1: Tên trường (full width) */}
               <div>
                 <label className="text-xs font-medium text-slate-500 block mb-1.5">Trường học</label>
                 <input
@@ -117,20 +123,43 @@ export const AcademicProfile = () => {
                   className="w-full bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
-              <div>
-                <label className="text-xs font-medium text-slate-500 block mb-1.5">Khối lớp</label>
-                <select
-                  value={grade}
-                  onChange={(e) => setGrade(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="10">Lớp 10</option>
-                  <option value="11">Lớp 11</option>
-                  <option value="12">Lớp 12</option>
-                </select>
+
+              {/* Row 2: Tỉnh/thành [2/3] + Khối lớp [1/3] */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2">
+                  <label className="text-xs font-medium text-slate-500 block mb-1.5">Tỉnh / Thành phố</label>
+                  <div className="relative">
+                    <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+                    <select
+                      value={province}
+                      onChange={(e) => setProvince(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none"
+                    >
+                      <option value="">-- Chọn tỉnh/thành --</option>
+                      {PROVINCES.map((p) => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500 block mb-1.5">Khối lớp</label>
+                  <select
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="10">Lớp 10</option>
+                    <option value="11">Lớp 11</option>
+                    <option value="12">Lớp 12</option>
+                  </select>
+                </div>
               </div>
+
+              {/* Row 3: Ngành yêu thích */}
               <div>
-                <label className="text-xs font-medium text-slate-500 block mb-1.5">Ngành yêu thích</label>
+                <label className="text-xs font-medium text-slate-500 block mb-1.5">
+                  Ngành yêu thích
+                  <span className="ml-1 text-slate-400 font-normal">(tùy chọn)</span>
+                </label>
                 <input
                   type="text"
                   value={majorInterest}

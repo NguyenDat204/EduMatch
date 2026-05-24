@@ -3,7 +3,10 @@ const User = require("../models/User");
 const University = require("../models/University");
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || "edumatchsecret123", {
+  if (!process.env.JWT_SECRET) {
+    console.warn('Warning: JWT_SECRET is not set. Tokens may be insecure.');
+  }
+  return jwt.sign({ id }, process.env.JWT_SECRET, {
     expiresIn: "30d",
   });
 };
@@ -13,7 +16,7 @@ const generateToken = (id) => {
 // @access  Public
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, school } = req.body;
+    const { name, email, password, school, grade = '12', majorInterest = '' } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Please provide all required fields" });
@@ -39,8 +42,8 @@ const registerUser = async (req, res) => {
       role: finalRole,
       academicInfo: {
         school: school || "",
-        grade: "12",
-        majorInterest: "",
+        grade: grade || "12",
+        majorInterest: majorInterest || "",
       },
     });
 
@@ -71,7 +74,11 @@ const registerUser = async (req, res) => {
           role: user.role,
           avatar: user.avatar,
           isPro: user.isPro,
+          subscription: user.subscription,
           academicInfo: user.academicInfo,
+          favorites: user.favorites,
+          personalityTest: user.personalityTest,
+          skillEvaluation: user.skillEvaluation,
           universityId: user.universityId,
         },
         token: generateToken(user._id),
@@ -104,7 +111,11 @@ const authUser = async (req, res) => {
           role: user.role,
           avatar: user.avatar,
           isPro: user.isPro,
+          subscription: user.subscription,
           academicInfo: user.academicInfo,
+          favorites: user.favorites,
+          personalityTest: user.personalityTest,
+          skillEvaluation: user.skillEvaluation,
           universityId: user.universityId,
         },
         token: generateToken(user._id),
@@ -152,7 +163,11 @@ const googleLogin = async (req, res) => {
         role: user.role,
         avatar: user.avatar,
         isPro: user.isPro,
+        subscription: user.subscription,
         academicInfo: user.academicInfo,
+        favorites: user.favorites,
+        personalityTest: user.personalityTest,
+        skillEvaluation: user.skillEvaluation,
         universityId: user.universityId,
       },
       token: generateToken(user._id),

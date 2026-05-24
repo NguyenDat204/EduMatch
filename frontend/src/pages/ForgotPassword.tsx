@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, ArrowRight, KeyRound, Sparkles, Lock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { MainLayout } from '../layouts';
 import { authService, apiClient } from '../services/api';
 
 export const ForgotPassword = () => {
@@ -58,7 +57,6 @@ export const ForgotPassword = () => {
 
 
   return (
-    <MainLayout>
       <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 animate-fade-in">
         <div className="w-full max-w-md animate-slide-up">
           <div className="glass rounded-3xl p-8 md:p-10 shadow-premium border-none">
@@ -217,6 +215,5 @@ export const ForgotPassword = () => {
           </div>
         </div>
       </div>
-    </MainLayout>
   );
 };

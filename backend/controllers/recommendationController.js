@@ -7,26 +7,71 @@ const UserInteraction = require("../models/UserInteraction");
 const getRecommendations = async (req, res) => {
   try {
     const userData = req.body;
-    if (!userData) {
-      return res.status(400).json({ message: "User data is required" });
+    if (!userData || typeof userData !== 'object') {
+      return res.status(400).json({ message: "User data is required and must be an object" });
     }
 
     const recommendations = await aiService.getCareerRecommendations(userData);
+
+    // Basic sanitizer to avoid saving unbounded AI content
+    const sanitizeText = (s, max = 2000) => {
+      if (!s) return "";
+      return String(s).replace(/<[^>]+>/g, '').slice(0, max);
+    };
+
+    const sanitizeCareer = (c) => {
+      if (!c || typeof c !== 'object') return null;
+      return {
+        title: sanitizeText(c.title || c.name || '', 200),
+        id: c.id || c._id || null,
+        description: sanitizeText(c.description || c.summary || '', 500),
+        salary: sanitizeText(c.salary || 'Chưa xác định', 100),
+        growth: sanitizeText(c.growth || 'Ổn định', 100),
+        skills: Array.isArray(c.skills)
+          ? c.skills.map((skill) => sanitizeText(skill, 80)).filter(Boolean)
+          : [],
+        suitability: Number.isFinite(c.suitability) ? c.suitability : 0,
+        category: sanitizeText(c.category || '', 100),
+        roadmap: Array.isArray(c.roadmap)
+          ? c.roadmap
+              .map((step) => ({
+                phase: sanitizeText(step.phase || '', 100),
+                title: sanitizeText(step.title || '', 100),
+                duration: sanitizeText(step.duration || '', 100),
+                description: sanitizeText(step.description || '', 300),
+                skillsToAcquire: Array.isArray(step.skillsToAcquire)
+                  ? step.skillsToAcquire.map((skill) => sanitizeText(skill, 80)).filter(Boolean)
+                  : []
+              }))
+              .filter((step) => step.title && step.description)
+          : [],
+      };
+    };
+
+    const safeRecommendations = {
+      archetype: sanitizeText(recommendations?.archetype || '', 200),
+      description: sanitizeText(recommendations?.description || '', 2000),
+      suitabilityScore: Number(recommendations?.suitabilityScore || 0),
+      insights: sanitizeText(recommendations?.insights || '', 2000),
+      careers: Array.isArray(recommendations?.careers)
+        ? recommendations.careers.map(sanitizeCareer).filter(Boolean).slice(0, 12)
+        : [],
+    };
 
     // Optional user profiles recording if token is attached
     if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
       try {
         const token = req.headers.authorization.split(" ")[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || "edumatchsecret123");
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         const user = await User.findById(decoded.id);
-        
+
         if (user) {
           user.personalityTest = {
-            archetype: recommendations.archetype,
-            description: recommendations.description,
-            suitabilityScore: recommendations.suitabilityScore,
-            insights: recommendations.insights,
-            careers: recommendations.careers,
+            archetype: safeRecommendations.archetype,
+            description: safeRecommendations.description,
+            suitabilityScore: safeRecommendations.suitabilityScore,
+            insights: safeRecommendations.insights,
+            careers: safeRecommendations.careers,
             answers: userData.answers || {},
             updatedAt: new Date()
           };
@@ -38,12 +83,13 @@ const getRecommendations = async (req, res) => {
       }
     }
 
-    res.json(recommendations);
+    // Return sanitized recommendations to client
+    res.json(safeRecommendations);
   } catch (error) {
     console.error("Recommendation Controller Error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       message: "Internal server error during analysis",
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -122,7 +168,7 @@ const acceptRecommendation = async (req, res) => {
           comment,
         },
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!recommendation) {
@@ -154,7 +200,7 @@ const acceptRecommendation = async (req, res) => {
   }
 };
 
-module.exports = { 
+module.exports = {
   getRecommendations,
   getUserRecommendations,
   getLatestRecommendation,

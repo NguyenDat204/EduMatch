@@ -1,20 +1,9 @@
 import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, Link } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Compass,
-  GraduationCap,
-  MessageSquare,
-  User,
-  CreditCard,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  Target,
-  Sparkles,
-  BookOpen,
-  Building2,
-  GraduationCap as Logo,
+  LayoutDashboard, Compass, GraduationCap, MessageSquare,
+  User, CreditCard, LogOut, ChevronLeft, ChevronRight,
+  Target, Sparkles, BookOpen, Building2, History,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -28,20 +17,20 @@ export const Sidebar = () => {
     {
       group: 'Khám phá',
       items: [
-        { icon: LayoutDashboard, label: 'Tổng quan',             path: '/dashboard' },
+        { icon: LayoutDashboard, label: 'Tổng quan',                path: '/dashboard' },
         { icon: Sparkles,        label: 'Trắc nghiệm hướng nghiệp', path: '/survey' },
-        { icon: Compass,         label: 'Khám phá',  path: '/explore' },
-        // { icon: GraduationCap,   label: 'Trường đại học',        path: '/universities' },
-        { icon: MessageSquare,   label: 'AI Tư vấn',             path: '/chat' },
+        { icon: History,         label: 'Lịch sử trắc nghiệm',      path: '/survey-history' },
+        { icon: Compass,         label: 'Khám phá',                 path: '/explore' },
+        { icon: MessageSquare,   label: 'AI Tư vấn',                path: '/chat' },
       ],
     },
     {
       group: 'Hồ sơ',
       items: [
-        { icon: User,     label: 'Hồ sơ cá nhân',  path: '/profile' },
-        { icon: BookOpen, label: 'Hồ sơ học tập',  path: '/academic-profile' },
-        { icon: Target,   label: 'Đánh giá kỹ năng', path: '/skill-evaluation' },
-        { icon: CreditCard, label: 'Nâng cấp Pro', path: '/upgrade' },
+        { icon: User,       label: 'Hồ sơ cá nhân',    path: '/profile' },
+        { icon: BookOpen,   label: 'Hồ sơ học tập',    path: '/academic-profile' },
+        { icon: Target,     label: 'Đánh giá kỹ năng', path: '/skill-evaluation' },
+        { icon: CreditCard, label: 'Nâng cấp Pro',      path: '/upgrade' },
       ],
     },
   ];
@@ -49,31 +38,23 @@ export const Sidebar = () => {
   if (user?.role === 'university') {
     navGroups.push({
       group: 'Quản lý',
-      items: [
-        { icon: Building2, label: 'Quản lý trường học', path: '/university/manage' },
-      ],
+      items: [{ icon: Building2, label: 'Quản lý trường học', path: '/university/manage' }],
     });
   }
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
-
   return (
-    <aside
-      className={cn(
-        'fixed left-0 top-0 h-screen bg-navy-950 border-r border-navy-800 z-40 transition-all duration-300 flex flex-col overflow-y-auto no-scrollbar',
-        isCollapsed ? 'w-16' : 'w-60'
-      )}
-    >
+    <aside className={cn(
+      'fixed left-0 top-0 h-screen bg-navy-950 border-r border-navy-800 z-40 transition-all duration-300 flex flex-col overflow-y-auto no-scrollbar',
+      isCollapsed ? 'w-16' : 'w-60'
+    )}>
       <div className="flex flex-col min-h-full py-4">
+
         {/* Logo */}
         <div className={cn('flex items-center mb-6 px-3', isCollapsed ? 'justify-center' : 'justify-between')}>
           {!isCollapsed && (
             <Link to="/dashboard" className="flex items-center gap-2.5">
               <div className="w-7 h-7 bg-primary-600 rounded-md flex items-center justify-center shrink-0">
-                <Logo size={15} className="text-white" />
+                <GraduationCap size={15} className="text-white" />
               </div>
               <span className="text-base font-bold text-white tracking-tight">EduMatch</span>
             </Link>
@@ -89,7 +70,7 @@ export const Sidebar = () => {
           </button>
         </div>
 
-        {/* Nav */}
+        {/* Nav groups */}
         <nav className="flex-1 px-2 space-y-5">
           {navGroups.map((group, gi) => (
             <div key={gi}>
@@ -104,15 +85,13 @@ export const Sidebar = () => {
                     key={item.path}
                     to={item.path}
                     title={isCollapsed ? item.label : undefined}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium',
-                        isActive
-                          ? 'bg-primary-600 text-white'
-                          : 'text-slate-400 hover:bg-navy-800 hover:text-white',
-                        isCollapsed && 'justify-center px-0'
-                      )
-                    }
+                    className={({ isActive }) => cn(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium',
+                      isActive
+                        ? 'bg-primary-600 text-white'
+                        : 'text-slate-400 hover:bg-navy-800 hover:text-white',
+                      isCollapsed && 'justify-center px-0'
+                    )}
                   >
                     <item.icon size={18} className="shrink-0" />
                     {!isCollapsed && <span>{item.label}</span>}
@@ -123,7 +102,7 @@ export const Sidebar = () => {
           ))}
         </nav>
 
-        {/* User + Logout */}
+        {/* User info + Logout */}
         <div className="px-2 mt-4 pt-4 border-t border-navy-800 space-y-1">
           {!isCollapsed && user && (
             <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
@@ -139,7 +118,7 @@ export const Sidebar = () => {
             </div>
           )}
           <button
-            onClick={handleLogout}
+            onClick={() => { logout(); navigate('/'); }}
             title={isCollapsed ? 'Đăng xuất' : undefined}
             className={cn(
               'flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors',
@@ -154,6 +133,3 @@ export const Sidebar = () => {
     </aside>
   );
 };
-
-// Need Link import
-import { Link } from 'react-router-dom';

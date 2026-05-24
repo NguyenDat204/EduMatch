@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, GraduationCap, AlertCircle, Loader2 } from 'lucide-react';
-import { MainLayout } from '../layouts';
 import { useAuth } from '../hooks/useAuth';
 
 export const Login = () => {
@@ -33,7 +32,6 @@ export const Login = () => {
   };
 
   return (
-    <MainLayout>
       <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md animate-fade-in">
           <div className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-2xl p-8 shadow-card">
@@ -138,6 +136,5 @@ export const Login = () => {
           </div>
         </div>
       </div>
-    </MainLayout>
   );
 };

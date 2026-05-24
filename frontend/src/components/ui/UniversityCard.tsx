@@ -11,19 +11,19 @@ export const UniversityCard: React.FC<UniversityCardProps> = ({ university }) =>
 
   return (
     <div
-      className="group bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl overflow-hidden hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-card-hover transition-all duration-200 cursor-pointer shadow-card"
+      className="group bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl overflow-hidden hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-card-hover transition-all duration-200 cursor-pointer shadow-card flex flex-col h-full"
       onClick={() => navigate(`/universities/${university.id}`)}
     >
       {/* Logo area */}
-      <div className="h-32 bg-slate-50 dark:bg-navy-800 flex items-center justify-center p-4 border-b border-slate-100 dark:border-navy-700">
+      <div className="h-44 sm:h-48 bg-slate-50 dark:bg-navy-800 overflow-hidden border-b border-slate-100 dark:border-navy-700">
         <img
           src={university.logo}
           alt={university.name}
-          className="max-h-20 max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
       </div>
 
-      <div className="p-4">
+      <div className="p-4 flex flex-col flex-1">
         {/* Ranking badge */}
         <div className="flex items-start justify-between mb-2">
           <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-primary-600 transition-colors leading-snug flex-1 mr-2">
@@ -53,7 +53,7 @@ export const UniversityCard: React.FC<UniversityCardProps> = ({ university }) =>
           )}
         </div>
 
-        <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-navy-700">
+        <div className="mt-auto flex items-center justify-between pt-3 border-t border-slate-100 dark:border-navy-700">
           <span className="text-xs font-medium text-primary-600 flex items-center gap-1">
             Xem chi tiết
             <ExternalLink size={11} />
