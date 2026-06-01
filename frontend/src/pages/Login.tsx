@@ -1,16 +1,117 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, GraduationCap, AlertCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
+declare global {
+  interface Window {
+    _googleInitialized?: boolean;
+    google?: {
+      accounts?: {
+        id?: {
+          initialize: (options: {
+            client_id: string;
+            callback: (response: { credential?: string }) => void;
+            auto_select?: boolean;
+            cancel_on_tap_outside?: boolean;
+          }) => void;
+          prompt: () => void;
+        };
+      };
+    };
+  }
+}
+
 export const Login = () => {
-  const [email, setEmail]       = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError]       = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [googleConfigured, setGoogleConfigured] = useState(true);
   const { login, loginViaGoogle, isLoading } = useAuth();
   const navigate = useNavigate();
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Refs to always hold the latest navigate/loginViaGoogle without re-initializing Google SDK
+  const navigateRef = useRef(navigate);
+  const loginViaGoogleRef = useRef(loginViaGoogle);
+  const setErrorRef = useRef(setError);
+
+  // Keep refs in sync with latest values on every render
+  useEffect(() => {
+    navigateRef.current = navigate;
+    loginViaGoogleRef.current = loginViaGoogle;
+    setErrorRef.current = setError;
+  });
+
+  // Stable callback passed to Google SDK — never changes identity, always uses latest refs
+  const handleGoogleCredentialResponse = useCallback(async (response: { credential?: string }) => {
+    if (!response?.credential) {
+      setErrorRef.current('Đăng nhập Google không thành công. Vui lòng thử lại.');
+      return;
+    }
+
+    setErrorRef.current(null);
+    try {
+      await loginViaGoogleRef.current(response.credential);
+      navigateRef.current('/dashboard');
+    } catch (err: any) {
+      setErrorRef.current(err.message || 'Đăng nhập Google thất bại.');
+    }
+  }, []); // empty deps — identity is stable for the lifetime of the component
+
+  useEffect(() => {
+    if (!googleClientId) {
+      setGoogleConfigured(false);
+      return;
+    }
+
+    // Already initialized — just mark ready, no need to re-initialize SDK
+    if (window._googleInitialized) {
+      setGoogleReady(true);
+      return;
+    }
+
+    const initGoogle = () => {
+      if (window._googleInitialized) {
+        setGoogleReady(true);
+        return;
+      }
+
+      if (window.google?.accounts?.id) {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          // Stable reference — Google SDK holds this callback for the session lifetime.
+          // Using useCallback + refs ensures it always calls the latest navigate/loginViaGoogle
+          // without needing to re-initialize the SDK on every render.
+          callback: handleGoogleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+        window._googleInitialized = true;
+        setGoogleReady(true);
+      }
+    };
+
+    if (window.google?.accounts?.id) {
+      initGoogle();
+      return;
+    }
+
+    // Poll until Google GSI script finishes loading
+    const interval = window.setInterval(() => {
+      if (window.google?.accounts?.id) {
+        initGoogle();
+        window.clearInterval(interval);
+      }
+    }, 200);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [googleClientId, handleGoogleCredentialResponse]);
+
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     try {
@@ -19,17 +120,22 @@ export const Login = () => {
     } catch (err: any) {
       setError(err.message || 'Email hoặc mật khẩu không chính xác.');
     }
-  };
+  }, [email, password, login, navigate]);
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = useCallback(() => {
     setError(null);
-    try {
-      await loginViaGoogle('student@edumatch.vn', 'Nguyễn Đạt', 'https://i.pravatar.cc/150?u=student');
-      navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Đăng nhập Google thất bại.');
+    if (!googleConfigured) {
+      setError('Google Sign-In chưa được cấu hình. Vui lòng thêm VITE_GOOGLE_CLIENT_ID vào .env.');
+      return;
     }
-  };
+
+    if (!googleReady || !window.google?.accounts?.id) {
+      setError('Google Sign-In chưa sẵn sàng. Vui lòng thử lại sau.');
+      return;
+    }
+
+    window.google.accounts.id.prompt();
+  }, [googleConfigured, googleReady]);
 
   return (
       <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
@@ -124,8 +230,11 @@ export const Login = () => {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              Đăng nhập với Google (Demo)
+              Đăng nhập với Google
             </button>
+            {!googleConfigured && (
+              <p className="mt-2 text-xs text-rose-500">Google Sign-In chưa được cấu hình. Thêm VITE_GOOGLE_CLIENT_ID vào .env.</p>
+            )}
 
             <p className="text-center mt-6 text-sm text-slate-500 dark:text-slate-400">
               Chưa có tài khoản?{' '}

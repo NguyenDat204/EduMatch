@@ -6,7 +6,7 @@ interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   register: (name: string, email: string, password: string, school?: string, role?: string, grade?: string, majorInterest?: string) => Promise<void>;
-  loginViaGoogle: (email: string, name: string, avatar?: string) => Promise<void>;
+  loginViaGoogle: (token: string) => Promise<void>;
   updateUserInState: (updatedUser: User) => void;
 }
 
@@ -105,10 +105,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const loginViaGoogle = async (email: string, name: string, avatar?: string) => {
+  const loginViaGoogle = async (token: string) => {
     setState(s => ({ ...s, isLoading: true }));
     try {
-      const response = await authService.loginViaGoogle(email, name, avatar);
+      const response = await authService.loginViaGoogle(token);
       if (response.success && response.data && response.token) {
         localStorage.setItem('edumatch_token', response.token);
         setState({

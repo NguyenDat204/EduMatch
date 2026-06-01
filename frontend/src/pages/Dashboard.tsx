@@ -23,11 +23,16 @@ export const Dashboard = () => {
   const { user, isLoading } = useAuth();
   const navigate = useNavigate();
 
-  const [rating, setRating]                   = useState(5);
-  const [message, setMessage]                 = useState('');
+  const [rating, setRating]                         = useState(5);
+  const [message, setMessage]                       = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
-  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
-  const [feedbackError, setFeedbackError]     = useState<string | null>(null);
+  const [feedbackSuccess, setFeedbackSuccess]       = useState(false);
+  const [feedbackError, setFeedbackError]           = useState<string | null>(null);
+  // ✅ Moved above all early returns — hooks must always be called unconditionally
+  const [recommendedCareers, setRecommendedCareers] = useState<any[]>([]);
+
+  const testResults    = user?.personalityTest || {};
+  const hasTakenSurvey = !!testResults.archetype;
 
   const handleFeedbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,20 +57,9 @@ export const Dashboard = () => {
     if (!isLoading && !user) navigate('/login');
   }, [user, isLoading, navigate]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-  if (!user) return null;
-
-  const testResults      = user.personalityTest || {};
-  const hasTakenSurvey   = !!testResults.archetype;
-  const [recommendedCareers, setRecommendedCareers] = useState<any[]>([]);
-
+  // ✅ Moved above early returns — always runs, guards internally
   useEffect(() => {
+    if (!user) return;
     const loadFallbackCareers = async () => {
       if (hasTakenSurvey && testResults.careers && testResults.careers.length > 0) {
         setRecommendedCareers(testResults.careers.slice(0, 2));
@@ -80,7 +74,16 @@ export const Dashboard = () => {
       }
     };
     loadFallbackCareers();
-  }, [hasTakenSurvey, testResults]);
+  }, [user, hasTakenSurvey, testResults]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!user) return null;
 
   // Skill radar data
   const skillScores = user.skillEvaluation?.scores || {

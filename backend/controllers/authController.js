@@ -1,6 +1,9 @@
 const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require('google-auth-library');
 const User = require("../models/User");
 const University = require("../models/University");
+
+const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
 
 const generateToken = (id) => {
   if (!process.env.JWT_SECRET) {
@@ -134,7 +137,31 @@ const authUser = async (req, res) => {
 // @access  Public
 const googleLogin = async (req, res) => {
   try {
-    const { email, name, avatar } = req.body;
+    const { token, email: requestEmail, name: requestName, avatar: requestAvatar } = req.body;
+
+    let email = requestEmail;
+    let name = requestName;
+    let avatar = requestAvatar;
+
+    if (token) {
+      if (!googleClient) {
+        return res.status(500).json({ message: "Google login is not configured on the server." });
+      }
+
+      const ticket = await googleClient.verifyIdToken({
+        idToken: token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+
+      if (!payload || !payload.email || payload.email_verified !== true) {
+        return res.status(401).json({ message: "Invalid Google token or unverified email." });
+      }
+
+      email = payload.email;
+      name = payload.name || email.split("@")[0];
+      avatar = payload.picture || avatar;
+    }
 
     if (!email) {
       return res.status(400).json({ message: "Google email is required" });
@@ -143,7 +170,6 @@ const googleLogin = async (req, res) => {
     let user = await User.findOne({ email });
 
     if (!user) {
-      // Create user if not exists
       const secureRandomPassword = Math.random().toString(36).slice(-10);
       user = await User.create({
         name: name || email.split("@")[0],

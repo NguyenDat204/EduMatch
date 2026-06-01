@@ -52,8 +52,8 @@ export const authService = {
     const response = await apiClient.post('/auth/register', { name, email, password, school, role, grade, majorInterest });
     return response.data;
   },
-  loginViaGoogle: async (email: string, name: string, avatar?: string): Promise<AuthResponse> => {
-    const response = await apiClient.post('/auth/google', { email, name, avatar });
+  loginViaGoogle: async (idToken: string): Promise<AuthResponse> => {
+    const response = await apiClient.post('/auth/google', { token: idToken });
     return response.data;
   },
   forgotPassword: async (email: string): Promise<ApiResponse<string>> => {
