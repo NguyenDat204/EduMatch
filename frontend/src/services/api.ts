@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Career, University, User, ApiResponse } from '../types';
+import type { Career, University, User, Question, ApiResponse } from '../types';
 
 const API_URL = 'http://localhost:5000/api';
 
@@ -211,6 +211,13 @@ export const surveyHistoryService = {
   },
   delete: async (id: string): Promise<any> => {
     const response = await apiClient.delete(`/survey-history/${id}`);
+    return response.data;
+  },
+};
+
+export const surveyService = {
+  getQuestions: async (): Promise<ApiResponse<Question[]>> => {
+    const response = await apiClient.get('/survey-questions');
     return response.data;
   },
 };

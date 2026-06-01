@@ -14,7 +14,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../layouts';
 import { useAuth } from '../hooks/useAuth';
 import { careerService } from '../services/api';
-import { mockCareers } from '../mock/data';
 
 export const CareerDetails = () => {
   const { id } = useParams();
@@ -36,15 +35,14 @@ export const CareerDetails = () => {
           
           // Check if already in student's favorites list
           if (user && user.favorites) {
-            const hasFavorite = user.favorites.includes(response.data._id) || user.favorites.includes(response.data.title);
-            setIsSaved(hasFavorite);
+            const hasFavorite = response.data._id && user.favorites.includes(response.data._id) || user.favorites.includes(response.data.title);
+            setIsSaved(!!hasFavorite);
           }
+        } else {
+          console.warn('Career API returned no data for id', id);
         }
       } catch (err) {
-        console.warn("Failed to load career detail, using fallback:", err);
-        // Fallback to mock data matching id
-        const mockItem = mockCareers.find(c => c.id === id) || mockCareers[0];
-        setCareer(mockItem);
+        console.warn('Failed to load career detail:', err);
       } finally {
         setLoading(false);
       }

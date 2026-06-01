@@ -4,7 +4,6 @@ import {
   Mail, Lock, User, GraduationCap, ArrowRight,
   AlertCircle, Loader2, Users, Building2, MapPin,
 } from 'lucide-react';
-import { MainLayout } from '../layouts';
 import { useAuth } from '../hooks/useAuth';
 import { PROVINCES, joinSchool } from '../lib/provinces';
 
@@ -48,7 +47,6 @@ export const Register = () => {
   const inputCls = 'w-full py-2.5 bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all placeholder:text-slate-400';
 
   return (
-    <MainLayout>
       <div className="min-h-[90vh] flex items-center justify-center px-4 py-14">
         <div className="w-full max-w-lg animate-fade-in">
           <div className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-2xl p-8 shadow-card">
@@ -196,6 +194,5 @@ export const Register = () => {
           </div>
         </div>
       </div>
-    </MainLayout>
   );
 };

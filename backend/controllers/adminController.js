@@ -85,7 +85,7 @@ const getSystemAnalytics = async (req, res) => {
     ]);
     const averageRating = ratingAggregate.length > 0 ? Number(ratingAggregate[0].averageRating.toFixed(1)) : 5.0;
 
-    // Growth rates, mock metrics for dashboard presentation
+    // Growth rates and sample metrics for dashboard presentation
     const recentSignups = await User.find()
       .select("name email role createdAt")
       .sort({ createdAt: -1 })

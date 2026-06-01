@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useNavigate, Link } from 'react-router-dom';
+import { NavLink, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Compass, GraduationCap, MessageSquare,
   User, CreditCard, LogOut, ChevronLeft, ChevronRight,
@@ -12,6 +12,8 @@ export const Sidebar = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+  const location = useLocation();
+  const RESULT_STORAGE_KEY_BASE = 'edumatch_result_cache';
 
   const navGroups = [
     {
@@ -80,23 +82,60 @@ export const Sidebar = () => {
                 </p>
               )}
               <div className="space-y-0.5">
-                {group.items.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    title={isCollapsed ? item.label : undefined}
-                    className={({ isActive }) => cn(
-                      'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium',
-                      isActive
-                        ? 'bg-primary-600 text-white'
-                        : 'text-slate-400 hover:bg-navy-800 hover:text-white',
-                      isCollapsed && 'justify-center px-0'
-                    )}
-                  >
-                    <item.icon size={18} className="shrink-0" />
-                    {!isCollapsed && <span>{item.label}</span>}
-                  </NavLink>
-                ))}
+                {group.items.map((item) => {
+                  const pathname = location.pathname || '';
+                  // Treat /result as part of survey flow so sidebar keeps Survey highlighted
+                  const active = pathname === item.path || (item.path === '/survey' && pathname === '/result');
+                  if (item.path === '/survey') {
+                    const handleClick = () => {
+                      try {
+                        const uid = user?._id || user?.email || 'anon';
+                        const RESULT_STORAGE_KEY = `${RESULT_STORAGE_KEY_BASE}_${uid}`;
+                        const cached = typeof window !== 'undefined' ? localStorage.getItem(RESULT_STORAGE_KEY) : null;
+                        if (cached) {
+                          navigate('/result');
+                          return;
+                        }
+                      } catch { /* ignore */ }
+                      navigate('/survey');
+                    };
+
+                    return (
+                      <button
+                        key={item.path}
+                        onClick={handleClick}
+                        title={isCollapsed ? item.label : undefined}
+                        className={cn(
+                          'w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium',
+                          active
+                            ? 'bg-primary-600 text-white'
+                            : 'text-slate-400 hover:bg-navy-800 hover:text-white',
+                          isCollapsed && 'justify-center px-0'
+                        )}
+                      >
+                        <item.icon size={18} className="shrink-0" />
+                        {!isCollapsed && <span>{item.label}</span>}
+                      </button>
+                    );
+                  }
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      title={isCollapsed ? item.label : undefined}
+                      className={() => cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm font-medium',
+                        active
+                          ? 'bg-primary-600 text-white'
+                          : 'text-slate-400 hover:bg-navy-800 hover:text-white',
+                        isCollapsed && 'justify-center px-0'
+                      )}
+                    >
+                      <item.icon size={18} className="shrink-0" />
+                      {!isCollapsed && <span>{item.label}</span>}
+                    </NavLink>
+                  );
+                })}
               </div>
             </div>
           ))}

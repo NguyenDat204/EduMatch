@@ -15,7 +15,6 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "../layouts";
 import { universityService } from "../services/api";
-import { mockUniversities } from "../mock/data";
 import type { University } from "../types";
 
 export const UniversityDetails = () => {
@@ -32,16 +31,10 @@ export const UniversityDetails = () => {
         if (response.success && response.data) {
           setUni(response.data);
         } else {
-          throw new Error("Không thể tải thông tin trường đại học.");
+          console.warn('University API returned no data for id', id);
         }
       } catch (err) {
-        console.warn(
-          "Failed to load university detail from database, using fallback:",
-          err,
-        );
-        const fallbackUni =
-          mockUniversities.find((u) => u.id === id) || mockUniversities[0];
-        setUni(fallbackUni);
+        console.warn('Failed to load university detail:', err);
       } finally {
         setLoading(false);
       }

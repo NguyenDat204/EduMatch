@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Sparkles, ArrowRight, Loader2, RotateCcw, Lightbulb, History } from 'lucide-react';
 import { DashboardLayout } from '../layouts';
@@ -14,8 +14,9 @@ interface IndustryResult {
   insights: string;
 }
 
-// Key lưu result vào sessionStorage để không mất khi chuyển tab
-const RESULT_SESSION_KEY = 'edumatch_result_cache';
+// Key lưu result vào localStorage theo user để giữ persist khi chuyển tab/thoát
+const RESULT_STORAGE_KEY_BASE = 'edumatch_result_cache';
+const RESULT_SAVED_FINGERPRINT = 'edumatch_result_saved_fp';
 
 export const Result = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -27,14 +28,23 @@ export const Result = () => {
   const [savedToHistory, setSavedToHistory] = useState(false);
   const [savedError, setSavedError] = useState<string | null>(null);
 
+  const fetchRef = useRef(false);
+
   useEffect(() => {
     if (!authLoading && !user) navigate('/login');
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
     const fetchRecommendations = async () => {
-      // 1. Thử lấy từ sessionStorage trước (tránh mất khi chuyển tab)
-      const cached = sessionStorage.getItem(RESULT_SESSION_KEY);
+      if (fetchRef.current) return; // prevent double-fetch (StrictMode / remounts)
+      fetchRef.current = true;
+
+      // Build user-scoped storage key
+      const uid = user?._id || user?.email || 'anon';
+      const RESULT_STORAGE_KEY = `${RESULT_STORAGE_KEY_BASE}_${uid}`;
+
+      // 1. Thử lấy từ localStorage trước (giữ persist khi đổi tab/thoát)
+      const cached = typeof window !== 'undefined' ? localStorage.getItem(RESULT_STORAGE_KEY) : null;
       if (cached && !location.state) {
         try {
           const parsed = JSON.parse(cached);
@@ -49,15 +59,19 @@ export const Result = () => {
       const surveyData = location.state;
       if (!surveyData) {
         // Không có state và không có cache → báo lỗi
-        const cached2 = sessionStorage.getItem(RESULT_SESSION_KEY);
-        if (cached2) {
-          try {
-            setResult(JSON.parse(cached2));
-            setSavedToHistory(true);
-            setLoading(false);
-            return;
-          } catch { /* ignore */ }
-        }
+        try {
+          const uid = user?._id || user?.email || 'anon';
+          const RESULT_STORAGE_KEY = `${RESULT_STORAGE_KEY_BASE}_${uid}`;
+          const cached2 = typeof window !== 'undefined' ? localStorage.getItem(RESULT_STORAGE_KEY) : null;
+          if (cached2) {
+            try {
+              setResult(JSON.parse(cached2));
+              setSavedToHistory(true);
+              setLoading(false);
+              return;
+            } catch { /* ignore */ }
+          }
+        } catch { /* ignore */ }
         setError('Không tìm thấy dữ liệu khảo sát. Vui lòng hoàn thành bài trắc nghiệm trước.');
         setLoading(false);
         return;
@@ -66,14 +80,29 @@ export const Result = () => {
       try {
         const data = await aiApiService.getRecommendations(surveyData);
         setResult(data);
-        // Lưu vào sessionStorage để không mất khi chuyển tab
-        sessionStorage.setItem(RESULT_SESSION_KEY, JSON.stringify(data));
-
-        // Lưu vào DB (survey history)
+        // Lưu vào localStorage theo user để giữ persist khi đổi tab/thoát
         try {
-          await surveyHistoryService.save(surveyData.answers || surveyData, data);
-          setSavedToHistory(true);
-          setSavedError(null);
+          const uid = user?._id || user?.email || 'anon';
+          const RESULT_STORAGE_KEY = `${RESULT_STORAGE_KEY_BASE}_${uid}`;
+          localStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify(data));
+        } catch { /* ignore */ }
+
+        // Lưu vào DB (survey history) — but avoid duplicate saves using fingerprint
+        try {
+          const uid = user?._id || user?.email || 'anon';
+          const fpPayload = { answers: surveyData.answers || surveyData, archetype: data?.archetype };
+          const fingerprint = btoa(unescape(encodeURIComponent(JSON.stringify(fpPayload))));
+          const existingFp = typeof window !== 'undefined' ? localStorage.getItem(`${RESULT_SAVED_FINGERPRINT}_${uid}`) : null;
+          if (existingFp === fingerprint) {
+            // already saved this exact result — skip
+            setSavedToHistory(true);
+            setSavedError(null);
+          } else {
+            await surveyHistoryService.save(surveyData.answers || surveyData, data);
+            setSavedToHistory(true);
+            setSavedError(null);
+            try { localStorage.setItem(`${RESULT_SAVED_FINGERPRINT}_${uid}`, fingerprint); } catch { /* ignore */ }
+          }
           // Xóa nháp (session/local) sau khi đã lưu vào DB, tránh khôi phục nháp cũ khi người dùng quay lại
           try {
             const getSessionKey = (userId: string) => `edumatch_survey_session_${userId}`;
@@ -104,8 +133,17 @@ export const Result = () => {
     setSavedError(null);
     try {
       const surveyData = location.state || {};
-      await surveyHistoryService.save(surveyData.answers || surveyData, result);
-      setSavedToHistory(true);
+      const uid = user?._id || user?.email || 'anon';
+      const fpPayload = { answers: surveyData.answers || surveyData, archetype: result?.archetype };
+      const fingerprint = btoa(unescape(encodeURIComponent(JSON.stringify(fpPayload))));
+      const existingFp = typeof window !== 'undefined' ? localStorage.getItem(`${RESULT_SAVED_FINGERPRINT}_${uid}`) : null;
+      if (existingFp === fingerprint) {
+        setSavedToHistory(true);
+      } else {
+        await surveyHistoryService.save(surveyData.answers || surveyData, result);
+        setSavedToHistory(true);
+        try { localStorage.setItem(`${RESULT_SAVED_FINGERPRINT}_${uid}`, fingerprint); } catch { /* ignore */ }
+      }
       // clear draft
       try {
         const getSessionKey = (userId: string) => `edumatch_survey_session_${userId}`;
@@ -199,7 +237,14 @@ export const Result = () => {
                 </button>
                 <button
                   onClick={() => {
-                    sessionStorage.removeItem(RESULT_SESSION_KEY);
+                    try {
+                      const uid = user?._id || user?.email || 'anon';
+                      const RESULT_STORAGE_KEY = `${RESULT_STORAGE_KEY_BASE}_${uid}`;
+                      localStorage.removeItem(RESULT_STORAGE_KEY);
+                      localStorage.removeItem(`${RESULT_SAVED_FINGERPRINT}_${uid}`);
+                      try { sessionStorage.removeItem(`edumatch_survey_session_${uid}`); } catch { /* ignore */ }
+                      try { localStorage.removeItem(`edumatch_survey_draft_${uid}`); } catch { /* ignore */ }
+                    } catch { /* ignore */ }
                     navigate('/survey');
                   }}
                   className="flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/15 border border-white/20 text-white font-semibold rounded-lg transition-colors text-sm"
@@ -223,8 +268,8 @@ export const Result = () => {
           {/* Career Cards */}
           <div className="lg:col-span-2 space-y-4">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">Nghề nghiệp phù hợp nhất</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {result.careers.map((career, idx) => {
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {result.careers.slice(0, 5).map((career, idx) => {
                 const safeCareer = {
                   id: career.id || career._id || String(idx),
                   title: career.title || career.name || 'Nghề nghiệp phù hợp',

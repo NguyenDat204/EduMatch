@@ -16,7 +16,7 @@ import {
 import { DashboardLayout } from '../layouts';
 import { CareerCard } from '../components/ui/CareerCard';
 import { useAuth } from '../hooks/useAuth';
-import { mockCareers } from '../mock/data';
+import { careerService } from '../services/api';
 import { feedbackService } from '../services/api';
 
 export const Dashboard = () => {
@@ -63,9 +63,24 @@ export const Dashboard = () => {
 
   const testResults      = user.personalityTest || {};
   const hasTakenSurvey   = !!testResults.archetype;
-  const recommendedCareers = hasTakenSurvey && testResults.careers && testResults.careers.length > 0
-    ? testResults.careers
-    : mockCareers.slice(0, 2);
+  const [recommendedCareers, setRecommendedCareers] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadFallbackCareers = async () => {
+      if (hasTakenSurvey && testResults.careers && testResults.careers.length > 0) {
+        setRecommendedCareers(testResults.careers.slice(0, 2));
+        return;
+      }
+      try {
+        const res = await careerService.getCareers();
+        if (res.success && res.data) setRecommendedCareers(res.data.slice(0, 2));
+      } catch (err) {
+        console.warn('Failed to load careers for dashboard:', err);
+        setRecommendedCareers([]);
+      }
+    };
+    loadFallbackCareers();
+  }, [hasTakenSurvey, testResults]);
 
   // Skill radar data
   const skillScores = user.skillEvaluation?.scores || {

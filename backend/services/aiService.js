@@ -458,131 +458,149 @@ const getCareerRecommendations = async (userData) => {
   const schoolSubjects = academic.subjects || {};
   const fallbackCareers = careerCatalog.length ? careerCatalog : PRESETS.careers;
 
-  // Calculate specific scores based on survey answers and academic grades
-  let techScore = 50;
-  let creativeScore = 40;
-  let businessScore = 45;
+  const normalizeAnswer = (value) => {
+    const raw = String(value ?? '').trim();
+    const lower = raw.toLowerCase();
 
-  // High-fidelity 15-question mapping heuristic
-  Object.entries(answers).forEach(([qId, val]) => {
-    // Block 1: Tech & Academic
-    if (qId === "q1" && val === "Rất yêu thích") {
-      techScore += 15;
-    }
-    if (qId === "q2") {
-      techScore += Number(val) * 3;
-    }
-    if (qId === "q3") {
-      techScore += Number(val) * 3;
-    }
-    if (qId === "q4") {
-      techScore += Number(val) * 2;
-    }
-    if (qId === "q5" && val === "Rất tò mò") {
-      techScore += 10;
+    if (raw === '') return 2;
+    if (!Number.isNaN(Number(raw))) {
+      const n = Number(raw);
+      if (n >= 1 && n <= 5) return Math.min(4, Math.max(0, n - 1));
     }
 
-    // Block 2: Creative & Analytical
-    if (qId === "q6" && val === "Đó là đam mê của tôi") {
-      creativeScore += 25;
-    }
-    if (qId === "q7") {
-      creativeScore += Number(val) * 4;
-    }
-    if (qId === "q8") {
-      techScore += Number(val) * 2;
-      businessScore += Number(val) * 2;
-    }
-    if (qId === "q9" && val === "Rất tò mò") {
-      techScore += 10;
-    }
-    if (qId === "q10") {
-      businessScore += Number(val) * 2;
-    }
+    const mapping = {
+      'không thích': 0,
+      'không quan tâm': 0,
+      'không phù hợp': 0,
+      'không thích lắm': 0,
+      'không tự tin': 0,
+      'không': 0,
+      'không bao giờ': 0,
+      'hiếm khi': 1,
+      'thỉnh thoảng': 2,
+      'có một chút': 2,
+      'bình thường': 2,
+      'tương đối tự tin': 2,
+      'có thể': 2,
+      'một chút cả hai': 2,
+      'cả hai': 2,
+      'vừa đủ': 2,
+      'cả hai tùy trường hợp': 2,
+      'rất thích': 4,
+      'rất yêu thích': 4,
+      'rất tự tin': 4,
+      'rất thường xuyên': 4,
+      'rất phù hợp': 4,
+      'gặp gỡ bạn bè': 4,
+      'rất hào hứng': 4,
+      'đó là đam mê của tôi': 4,
+      'luôn sẵn sàng dẫn dắt': 4,
+      'chi tiết rõ ràng': 4,
+      'logic và phân tích': 4,
+      'kế hoạch rõ ràng': 4,
+      'tuân theo thời hạn và kế hoạch': 4,
+      'kinh nghiệm và chi tiết': 4,
+      'complete soon': 4,
+      'thực tế': 4,
+      'yêu thích': 4,
+      'cách nhìn tổng quát': 3,
+      'linh hoạt thay đổi': 0,
+      'không quá quan tâm': 1
+    };
 
-    // Block 3: Soft Skills & Adaptability
-    if (qId === "q11" && val === "Luôn sẵn sàng dẫn dắt") {
-      businessScore += 20;
-    }
-    if (qId === "q12") {
-      creativeScore += Number(val) * 2;
-      businessScore += Number(val) * 2;
-    }
-    if (qId === "q13" && val === "Rất thích giúp đỡ") {
-      businessScore += 10;
-      creativeScore += 10;
-    }
-    if (qId === "q14") {
-      creativeScore += Number(val) * 2;
-    }
-    if (qId === "q15") {
-      businessScore += Number(val) * 2;
-    }
-  });
+    return mapping[lower] ?? 2;
+  };
 
-  // Basic heuristic using grades
-  const math = Number(schoolSubjects.math || 8.0);
-  const english = Number(schoolSubjects.english || 8.0);
-  const physics = Number(schoolSubjects.physics || 8.0);
+  const getSumScore = (keys) =>
+    keys.reduce((sum, id) => sum + normalizeAnswer(answers[id]), 0);
 
-  if (math >= 8.5) {
-    techScore += 10;
-  }
-  if (english >= 8.5) {
-    businessScore += 10;
-    creativeScore += 5;
-  }
-  if (physics >= 8.5) {
-    techScore += 5;
-  }
+  const riasecScores = {
+    Realistic: getSumScore(['q1', 'q2', 'q3']),
+    Investigative: getSumScore(['q4', 'q5', 'q6']),
+    Artistic: getSumScore(['q7', 'q8', 'q9']),
+    Social: getSumScore(['q10', 'q11', 'q12']),
+    Enterprising: getSumScore(['q13', 'q14', 'q15']),
+    Conventional: getSumScore(['q16', 'q17', 'q18']),
+  };
 
-  // Select suitable careers and sort by calculated compatibility
-  let matchedCareers = [...fallbackCareers];
-  matchedCareers = matchedCareers
-    .map(c => {
-      let suitability = 75;
-      if (c.category === "Công nghệ") suitability = Math.min(99, Math.round(techScore));
-      if (c.category === "Trí tuệ nhân tạo")
-        suitability = Math.min(99, Math.round(techScore * 0.95 + 5));
-      if (c.category === "Thiết kế") suitability = Math.min(99, Math.round(creativeScore));
-      if (c.category === "Quản lý & Kinh doanh")
-        suitability = Math.min(99, Math.round(businessScore));
-      return { ...c, suitability };
+  const mbtiScore = {
+    E: getSumScore(['q19', 'q20']),
+    S: getSumScore(['q21', 'q22']),
+    T: getSumScore(['q23', 'q24']),
+    J: getSumScore(['q25', 'q26']),
+  };
+
+  const pickLetter = (positive, negative, score) => (score >= 5 ? positive : negative);
+  const mbtiType = `${pickLetter('E', 'I', mbtiScore.E)}${pickLetter('S', 'N', mbtiScore.S)}${pickLetter('T', 'F', mbtiScore.T)}${pickLetter('J', 'P', mbtiScore.J)}`;
+
+  const findTopRIASEC = Object.entries(riasecScores).sort((a, b) => b[1] - a[1])[0] || ['Investigative', 0];
+  const [topCategory] = findTopRIASEC;
+
+  const categoryBoost = (careerCategory) => {
+    const normalize = (value) => Math.max(0, Math.min(1, value / 12));
+    switch (careerCategory) {
+      case 'Công nghệ':
+        return (normalize(riasecScores.Realistic) * 0.45 + normalize(riasecScores.Investigative) * 0.45 + normalize(riasecScores.Conventional) * 0.1);
+      case 'Trí tuệ nhân tạo':
+        return (normalize(riasecScores.Investigative) * 0.55 + normalize(riasecScores.Realistic) * 0.3 + normalize(riasecScores.Conventional) * 0.15);
+      case 'Thiết kế':
+        return (normalize(riasecScores.Artistic) * 0.6 + normalize(riasecScores.Social) * 0.25 + normalize(riasecScores.Realistic) * 0.15);
+      case 'Quản lý & Kinh doanh':
+        return (normalize(riasecScores.Enterprising) * 0.55 + normalize(riasecScores.Social) * 0.3 + normalize(riasecScores.Conventional) * 0.15);
+      default:
+        return 0.5;
+    }
+  };
+
+  const extrasByMBTI = (careerCategory) => {
+    let bonus = 0;
+    if (careerCategory === 'Công nghệ' && mbtiType.includes('I')) bonus += 3;
+    if (careerCategory === 'Trí tuệ nhân tạo' && mbtiType.startsWith('IN')) bonus += 4;
+    if (careerCategory === 'Thiết kế' && mbtiType.includes('F')) bonus += 3;
+    if (careerCategory === 'Quản lý & Kinh doanh' && mbtiType.includes('E')) bonus += 3;
+    return bonus;
+  };
+
+  const matchedCareers = [...fallbackCareers]
+    .map((career) => {
+      const boost = categoryBoost(career.category);
+      const suitability = Math.min(99, Math.round(65 + boost * 30 + extrasByMBTI(career.category)));
+      return { ...career, suitability };
     })
     .sort((a, b) => b.suitability - a.suitability);
 
-  // Formulate the archetype based on top scores
-  let archetype = "Nhà Kỹ Thuật Đa Tài";
-  let description =
-    "Bạn có khả năng giải quyết các vấn đề kỹ thuật và logic cực tốt kết hợp tư duy khoa học cao.";
-  let insights =
-    "Hãy tiếp tục trau dồi các môn tự nhiên và bắt đầu tham gia các dự án lập trình thực tế để phát triển bản thân sớm nhất!";
+  const getArchetypeLabel = () => {
+    switch (topCategory) {
+      case 'Realistic':
+        return 'Nhà Thực Hành Kỹ Thuật';
+      case 'Investigative':
+        return 'Nhà Khám Phá Phân Tích';
+      case 'Artistic':
+        return 'Nhà Sáng Tạo Trải Nghiệm';
+      case 'Social':
+        return 'Nhà Hỗ Trợ Đồng Cảm';
+      case 'Enterprising':
+        return 'Nhà Khởi Nghiệp Lãnh Đạo';
+      case 'Conventional':
+        return 'Nhà Quản Trị Chi Tiết';
+      default:
+        return 'Nhà Định Hướng Tích Hợp';
+    }
+  };
 
-  if (creativeScore > techScore && creativeScore > businessScore) {
-    archetype = "Nhà Sáng Tạo Nghệ Thuật & Trải Nghiệm";
-    description =
-      "Bạn sở hữu tư duy thẩm mỹ nhạy bén, khả năng đồng cảm sâu sắc với người dùng và thích tự do thiết kế các ý tưởng độc đáo.";
-    insights =
-      "Tập trung xây dựng portfolio cá nhân bằng các công cụ như Figma, học vẽ phác thảo và tìm hiểu tâm lý học hành vi người dùng.";
-  } else if (businessScore > techScore && businessScore > creativeScore) {
-    archetype = "Nhà Lãnh Đạo Chiến Lược";
-    description =
-      "Bạn năng động, giao tiếp tốt, thích dẫn dắt đội ngũ và có tư duy tổ chức công việc kinh doanh vô cùng nhạy bén.";
-    insights =
-      "Tìm kiếm các câu lạc bộ đội nhóm ở trường cấp 3, rèn luyện kỹ năng nói trước đám đông và tìm hiểu kiến thức kinh doanh cơ bản.";
-  }
+  const archetypeLabel = getArchetypeLabel();
+  const archetype = `${mbtiType} • ${archetypeLabel}`;
+  const description = `Bạn có khuynh hướng ${archetypeLabel.toLowerCase()} với phong cách ${mbtiType}. Điều này giúp bạn phù hợp với các công việc cần sự ${topCategory === 'Artistic' ? 'sáng tạo' : topCategory === 'Investigative' ? 'khảo sát' : topCategory === 'Social' ? 'giao tiếp' : topCategory === 'Enterprising' ? 'lãnh đạo' : topCategory === 'Conventional' ? 'tổ chức' : 'thực hành'} rõ ràng.`;
+  const insights = `Kết quả cho thấy bạn nên ưu tiên các ngành nghề phù hợp với nhóm ${topCategory} và phong cách ${mbtiType}. Hãy bổ sung thêm kỹ năng thực hành, tư duy phân tích và khả năng làm việc nhóm để gia tăng cơ hội phát triển.`;
 
-  const suitabilityScore = Math.max(82, Math.round(matchedCareers[0].suitability));
-  
   const result = {
     archetype,
     description,
-    suitabilityScore,
+    suitabilityScore: Math.max(82, Math.round(matchedCareers[0]?.suitability || 82)),
     careers: matchedCareers,
-    insights
+    insights,
   };
 
-  // Cache the fallback result too
   const cacheKey = generateCacheKey(userData);
   cacheSet(cacheKey, result);
 

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Zap, RotateCcw, Save } from 'lucide-react';
 import { DashboardLayout } from '../layouts';
 import { QuestionCard } from '../components/ui';
-import { mockQuestions } from '../mock/data';
+import { surveyService } from '../services/api';
+import type { Question } from '../types';
 import { useAuth } from '../hooks/useAuth';
 
 // ── Storage helpers ────────────────────────────────────────────
@@ -49,10 +50,13 @@ export const Survey = () => {
   const [currentStep, setCurrentStep]   = useState(0);
   const [answers, setAnswers]           = useState<Record<string, string | number>>({});
   const [hasDraft, setHasDraft]         = useState(false);
+  const [questions, setQuestions]       = useState<Question[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [fetchError, setFetchError]     = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const totalSteps    = mockQuestions.length;
-  const progress      = ((currentStep + 1) / totalSteps) * 100;
+  const totalSteps    = questions.length;
+  const progress      = totalSteps > 0 ? ((currentStep + 1) / totalSteps) * 100 : 0;
   const answeredCount = Object.keys(answers).length;
 
   // ── Restore draft khi mount ────────────────────────────────
@@ -64,6 +68,24 @@ export const Survey = () => {
       setCurrentStep(draft.currentStep || 0);
       setHasDraft(true);
     }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const loadQuestions = async () => {
+      try {
+        const response = await surveyService.getQuestions();
+        setQuestions(response.data);
+      } catch (error) {
+        console.error('Load survey questions failed:', error);
+        setFetchError('Không tải được câu hỏi khảo sát. Vui lòng thử lại.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadQuestions();
   }, [user]);
 
   // ── Auto-save mỗi khi answers/step thay đổi ───────────────
@@ -89,7 +111,7 @@ export const Survey = () => {
     if (!authLoading && !user) navigate('/login');
   }, [user, authLoading, navigate]);
 
-  if (authLoading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin" />
@@ -98,14 +120,48 @@ export const Survey = () => {
   }
   if (!user) return null;
 
+  if (fetchError) {
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen flex flex-col items-center justify-center text-center px-4">
+          <p className="text-lg font-semibold text-slate-900 dark:text-white mb-3">Không thể tải dữ liệu khảo sát</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">{fetchError}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-5 py-3 rounded-lg bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors"
+          >
+            Thử lại
+          </button>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!questions.length) {
+    return (
+      <DashboardLayout>
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="rounded-3xl border border-slate-200 dark:border-navy-700 bg-white dark:bg-navy-900 shadow-card p-10 text-center">
+            <p className="text-base font-medium text-slate-900 dark:text-white">Chưa có câu hỏi khảo sát nào.</p>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Vui lòng kiểm tra lại kết nối hoặc liên hệ quản trị viên.</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   const getSectionName = (step: number) => {
     if (step < 5)  return 'Phần I — Học thuật & Công nghệ';
     if (step < 10) return 'Phần II — Tư duy & Sáng tạo';
     return 'Phần III — Kỹ năng & Thích ứng';
   };
 
+  const currentQuestion = questions[currentStep];
+  const currentAnswer = currentQuestion ? answers[currentQuestion.id] : undefined;
+
   const handleSelect = (option: string) => {
-    const newAnswers = { ...answers, [mockQuestions[currentStep].id]: option };
+    if (!currentQuestion) return;
+    const newAnswers = { ...answers, [currentQuestion.id]: option };
     setAnswers(newAnswers);
     saveDraft(newAnswers, currentStep);
     setHasDraft(true);
@@ -116,7 +172,8 @@ export const Survey = () => {
   };
 
   const handleScale = (value: number) => {
-    const newAnswers = { ...answers, [mockQuestions[currentStep].id]: value };
+    if (!currentQuestion) return;
+    const newAnswers = { ...answers, [currentQuestion.id]: value };
     setAnswers(newAnswers);
     saveDraft(newAnswers, currentStep);
     setHasDraft(true);
@@ -144,8 +201,6 @@ export const Survey = () => {
     // Result.tsx sẽ xóa sau khi lưu vào DB
     navigate('/result', { state: { answers } });
   };
-
-  const currentAnswer = answers[mockQuestions[currentStep].id];
 
   return (
     <DashboardLayout>
@@ -199,7 +254,7 @@ export const Survey = () => {
         {/* ── Question ── */}
         <div className="min-h-[340px]">
           <QuestionCard
-            question={mockQuestions[currentStep]}
+            question={currentQuestion}
             selectedOption={currentAnswer}
             onSelect={handleSelect}
             onScaleChange={handleScale}
@@ -237,7 +292,7 @@ export const Survey = () => {
 
         {/* ── Dot navigator ── */}
         <div className="mt-6 flex flex-wrap justify-center gap-1.5">
-          {mockQuestions.map((q, i) => {
+          {questions.map((q, i) => {
             const isAnswered = answers[q.id] !== undefined;
             const isCurrent  = i === currentStep;
             return (
