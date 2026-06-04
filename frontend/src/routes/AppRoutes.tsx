@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from '../layouts/MainLayout';
 
 // ─── Public Pages ─────────────────────────────────────────────
@@ -40,6 +40,7 @@ const AdminCareers = lazy(() => import('../pages/admin/Careers').then(m => ({ de
 const AdminUniversities = lazy(() => import('../pages/admin/Universities').then(m => ({ default: m.Universities })));
 const AdminAnalytics = lazy(() => import('../pages/admin/Analytics').then(m => ({ default: m.Analytics })));
 const AdminFeedback = lazy(() => import('../pages/admin/Feedback').then(m => ({ default: m.Feedback })));
+const AdminSettings = lazy(() => import('../pages/admin/Settings').then(m => ({ default: m.Settings })));
 
 // ─── Loading Fallback ─────────────────────────────────────────
 const PageLoader = () => (
@@ -83,11 +84,13 @@ export const AppRoutes = () => (
 
       {/* ── Admin Pages (with AdminLayout) ── */}
       <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<Navigate to="analytics" replace />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="careers" element={<AdminCareers />} />
         <Route path="universities" element={<AdminUniversities />} />
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="feedback" element={<AdminFeedback />} />
+        <Route path="settings" element={<AdminSettings />} />
       </Route>
     </Routes>
   </Suspense>

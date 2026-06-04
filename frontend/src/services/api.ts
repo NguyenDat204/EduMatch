@@ -280,4 +280,20 @@ export const adminService = {
     const response = await apiClient.delete(`/universities/${id}`);
     return response.data;
   },
+  getSettings: async (): Promise<ApiResponse<any>> => {
+    const response = await apiClient.get('/admin/settings');
+    return response.data;
+  },
+  updateSettings: async (data: any): Promise<ApiResponse<any>> => {
+    const response = await apiClient.put('/admin/settings', data);
+    return response.data;
+  },
+  getAllSurveys: async (): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get('/admin/surveys');
+    return response.data;
+  },
+  getUserActivity: async (userId: string): Promise<ApiResponse<any>> => {
+    const response = await apiClient.get(`/admin/users/${userId}/activity`);
+    return response.data;
+  },
 };

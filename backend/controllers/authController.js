@@ -218,7 +218,7 @@ const forgotPassword = async (req, res) => {
 
     // Generate a secure 6-digit numeric OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
+
     // Save to user with 10 minutes expiration
     user.resetPasswordOTP = otp;
     user.resetPasswordOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
@@ -264,7 +264,7 @@ const resetPassword = async (req, res) => {
     user.password = newPassword; // Will be cryptographically hashed via the pre-save hook in User.js
     user.resetPasswordOTP = undefined;
     user.resetPasswordOTPExpires = undefined;
-    
+
     await user.save();
 
     res.json({
