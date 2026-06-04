@@ -20,9 +20,6 @@ import {
   Database,
   Calendar,
   RefreshCw,
-  TrendingUp,
-  Award,
-  ChevronDown,
   ExternalLink,
   Eye,
   Heart,
@@ -61,7 +58,7 @@ export const Analytics = () => {
 
   // Filtering & Search States
   const [searchQuery, setSearchQuery] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'student' | 'admin'>('all');
+  const [roleFilter] = useState<'all' | 'student' | 'admin'>('all');
 
   // Add University Form States
   const [showAddUniForm, setShowAddUniForm] = useState(false);
@@ -136,23 +133,23 @@ export const Analytics = () => {
     return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
   };
 
-  const handleRoleChange = async (user: any, newRole: string) => {
-    if (user._id === currentAdmin?._id) { setError('Bạn không thể tự hạ quyền của chính mình.'); return; }
-    setActionLoading(true);
-    setError(null); setSuccess(null);
-    try {
-      const res = await adminService.updateUser(user._id, user.name, user.email, newRole, user.isPro);
-      if (res.success) {
-        setUsersList(prev => prev.map(u => u._id === user._id ? { ...u, role: newRole } : u));
-        setSuccess(`Đã cập nhật quyền của ${user.name} → ${newRole.toUpperCase()}`);
-        setTimeout(() => setSuccess(null), 3000);
-      }
-    } catch (e: any) {
-      setError(e.response?.data?.message || 'Cập nhật vai trò thất bại.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  // const handleRoleChange = async (user: any, newRole: string) => {
+  //   if (user._id === currentAdmin?._id) { setError('Bạn không thể tự hạ quyền của chính mình.'); return; }
+  //   setActionLoading(true);
+  //   setError(null); setSuccess(null);
+  //   try {
+  //     const res = await adminService.updateUser(user._id, user.name, user.email, newRole, user.isPro);
+  //     if (res.success) {
+  //       setUsersList(prev => prev.map(u => u._id === user._id ? { ...u, role: newRole } : u));
+  //       setSuccess(`Đã cập nhật quyền của ${user.name} → ${newRole.toUpperCase()}`);
+  //       setTimeout(() => setSuccess(null), 3000);
+  //     }
+  //   } catch (e: any) {
+  //     setError(e.response?.data?.message || 'Cập nhật vai trò thất bại.');
+  //   } finally {
+  //     setActionLoading(false);
+  //   }
+  // };
 
   const handleDeleteUser = async (user: any) => {
     if (user._id === currentAdmin?._id) { setError('Không thể xóa tài khoản của chính bạn.'); return; }
