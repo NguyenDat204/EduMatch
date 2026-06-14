@@ -1,115 +1,138 @@
 const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require('google-auth-library');
+const { google } = require('googleapis');
 const nodemailer = require("nodemailer");
 const { Resend } = require("resend");
 const User = require("../models/User");
 const University = require("../models/University");
 
 // ==================== EMAIL SERVICE ====================
-// Strategy:
-//  1. If RESEND_API_KEY is set → use Resend HTTP API (works on Render/cloud, no SMTP ports needed)
-//  2. Otherwise → fall back to nodemailer SMTP (works locally)
+// Priority:
+//  1. Gmail API via OAuth2 (GMAIL_REFRESH_TOKEN) — gửi từ edumatchvn@gmail.com, works on Render
+//  2. Resend HTTP API   (RESEND_API_KEY)          — fallback cloud provider
+//  3. Nodemailer SMTP   (EMAIL_USER+EMAIL_PASS)   — local dev only
 
-const sendOTPEmail = async (toEmail, otp, userName = '', type = 'reset') => {
+const buildEmailHtml = (otp, userName, type) => {
   const isVerify = type === 'verify';
-  const subject  = isVerify
-    ? '[EduMatch] Xác thực email đăng ký tài khoản'
-    : '[EduMatch] Mã xác thực khôi phục mật khẩu';
   const subtitle = isVerify
     ? 'Hoàn tất đăng ký tài khoản EduMatch'
     : 'Đặt lại mật khẩu tài khoản EduMatch';
   const bodyText = isVerify
     ? 'Bạn vừa đăng ký tài khoản EduMatch. Vui lòng sử dụng mã OTP dưới đây để xác thực địa chỉ email của bạn:'
     : 'Bạn đã yêu cầu khôi phục mật khẩu cho tài khoản EduMatch. Vui lòng sử dụng mã OTP dưới đây để đặt lại mật khẩu:';
-  const warningText = '⚠️ Mã OTP này <strong>sẽ hết hạn sau 10 phút</strong>. Không chia sẻ mã này với bất kỳ ai.';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;margin:0;padding:0}
+.container{max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.header{background:linear-gradient(135deg,#2563eb,#1a4fd6);padding:36px 32px;text-align:center}
+.header h1{color:#fff;margin:0;font-size:24px;font-weight:700}
+.header p{color:rgba(255,255,255,.8);margin:8px 0 0;font-size:14px}
+.body{padding:40px 32px}
+.greeting{color:#1e293b;font-size:16px;font-weight:600;margin-bottom:16px}
+.text{color:#64748b;font-size:14px;line-height:1.6;margin-bottom:24px}
+.otp-box{background:#eff6ff;border:2px dashed #2563eb;border-radius:12px;padding:24px;text-align:center;margin:24px 0}
+.otp-code{font-size:40px;font-weight:900;color:#2563eb;letter-spacing:8px;font-family:monospace}
+.otp-label{color:#94a3b8;font-size:12px;margin-top:8px;font-weight:600;text-transform:uppercase;letter-spacing:1px}
+.warning{background:#fef3c7;border-left:4px solid #f59e0b;padding:12px 16px;border-radius:0 8px 8px 0;color:#92400e;font-size:13px;margin:20px 0}
+.footer{background:#f8fafc;padding:20px 32px;text-align:center;color:#94a3b8;font-size:12px;border-top:1px solid #e2e8f0}
+</style></head><body><div class="container">
+<div class="header"><h1>EduMatch</h1><p>${subtitle}</p></div>
+<div class="body">
+  <p class="greeting">Xin chào${userName ? ` ${userName}` : ''}!</p>
+  <p class="text">${bodyText}</p>
+  <div class="otp-box">
+    <div class="otp-code">${otp}</div>
+    <div class="otp-label">Ma xac thuc (OTP)</div>
+  </div>
+  <div class="warning">Ma OTP nay <strong>se het han sau 10 phut</strong>. Khong chia se ma nay voi bat ky ai.</div>
+  <p class="text">Neu ban khong thuc hien yeu cau nay, vui long bo qua email. Tai khoan cua ban van an toan.</p>
+</div>
+<div class="footer">
+  <p>&copy; ${new Date().getFullYear()} EduMatch &middot; Tat ca quyen duoc bao luu</p>
+  <p style="margin-top:4px">Email nay duoc gui tu dong, vui long khong tra loi.</p>
+</div>
+</div></body></html>`;
+};
 
-  const htmlBody = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; margin: 0; padding: 0; }
-        .container { max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-        .header { background: linear-gradient(135deg, #2563eb, #1a4fd6); padding: 36px 32px; text-align: center; }
-        .header h1 { color: white; margin: 0; font-size: 24px; font-weight: 700; }
-        .header p { color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px; }
-        .body { padding: 40px 32px; }
-        .greeting { color: #1e293b; font-size: 16px; font-weight: 600; margin-bottom: 16px; }
-        .text { color: #64748b; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
-        .otp-box { background: #eff6ff; border: 2px dashed #2563eb; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0; }
-        .otp-code { font-size: 40px; font-weight: 900; color: #2563eb; letter-spacing: 8px; font-family: monospace; }
-        .otp-label { color: #94a3b8; font-size: 12px; margin-top: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-        .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 0 8px 8px 0; color: #92400e; font-size: 13px; margin: 20px 0; }
-        .footer { background: #f8fafc; padding: 20px 32px; text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>EduMatch</h1>
-          <p>${subtitle}</p>
-        </div>
-        <div class="body">
-          <p class="greeting">Xin chào${userName ? ` ${userName}` : ''}!</p>
-          <p class="text">${bodyText}</p>
-          <div class="otp-box">
-            <div class="otp-code">${otp}</div>
-            <div class="otp-label">Mã xác thực (OTP)</div>
-          </div>
-          <div class="warning">${warningText}</div>
-          <p class="text">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email. Tài khoản của bạn vẫn an toàn.</p>
-        </div>
-        <div class="footer">
-          <p>© ${new Date().getFullYear()} EduMatch · Tất cả quyền được bảo lưu</p>
-          <p style="margin-top:4px">Email này được gửi tự động, vui lòng không trả lời.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+const sendOTPEmail = async (toEmail, otp, userName = '', type = 'reset') => {
+  const isVerify = type === 'verify';
+  const subject  = isVerify
+    ? '[EduMatch] Xac thuc email dang ky tai khoan'
+    : '[EduMatch] Ma xac thuc khoi phuc mat khau';
+  const htmlBody = buildEmailHtml(otp, userName, type);
 
-  // ── Path 1: Resend HTTP API (production / Render) ─────────────────────────
-  if (process.env.RESEND_API_KEY) {
+  // ── Path 1: Gmail API via OAuth2 (Render production) ─────────────────────
+  if (process.env.GMAIL_REFRESH_TOKEN && process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET) {
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const fromAddress = process.env.RESEND_FROM || 'EduMatch <edumatchvn@gmail.com>';
-      await resend.emails.send({
-        from: fromAddress,
-        to: toEmail,
-        subject,
-        html: htmlBody,
-      });
+      const auth = new google.auth.OAuth2(
+        process.env.GMAIL_CLIENT_ID,
+        process.env.GMAIL_CLIENT_SECRET,
+        'urn:ietf:wg:oauth:2.0:oob'
+      );
+      auth.setCredentials({ refresh_token: process.env.GMAIL_REFRESH_TOKEN });
+
+      const gmail = google.gmail({ version: 'v1', auth });
+      const fromEmail = process.env.GMAIL_USER || 'edumatchvn@gmail.com';
+
+      const rawMessage = [
+        `From: "EduMatch" <${fromEmail}>`,
+        `To: ${toEmail}`,
+        `Subject: ${subject}`,
+        'MIME-Version: 1.0',
+        'Content-Type: text/html; charset=utf-8',
+        '',
+        htmlBody,
+      ].join('\r\n');
+
+      const encoded = Buffer.from(rawMessage)
+        .toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      await gmail.users.messages.send({ userId: 'me', requestBody: { raw: encoded } });
       return true;
     } catch (err) {
-      console.error('[EMAIL] Resend API failed:', err.message);
-      return false;
+      console.error('[EMAIL] Gmail API failed:', err.message);
+      // fall through to next provider
     }
   }
 
-  // ── Path 2: Nodemailer SMTP (local development fallback) ──────────────────
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.error('[EMAIL] No email provider configured. Set RESEND_API_KEY (production) or EMAIL_USER+EMAIL_PASS (local).');
-    return false;
+  // ── Path 2: Resend HTTP API (cloud fallback) ──────────────────────────────
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const from = process.env.RESEND_FROM || 'EduMatch <onboarding@resend.dev>';
+      await resend.emails.send({ from, to: toEmail, subject, html: htmlBody });
+      return true;
+    } catch (err) {
+      console.error('[EMAIL] Resend API failed:', err.message);
+    }
   }
 
+  // ── Path 3: Nodemailer SMTP (local dev only) ──────────────────────────────
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('[EMAIL] No email provider configured.');
+    return false;
+  }
   try {
-    const smtpPort = parseInt(process.env.EMAIL_SMTP_PORT || '587');
+    const port = parseInt(process.env.EMAIL_SMTP_PORT || '587');
+    const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
     const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-      port: smtpPort,
-      secure: smtpPort === 465,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+      host,
+      port,
+      secure: port === 465,
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
       tls: { rejectUnauthorized: false },
       connectionTimeout: 15000,
       greetingTimeout: 15000,
       socketTimeout: 20000,
     });
+    // Allow overriding the From address (e.g. edumatchvn@gmail.com via Brevo sender verification)
+    const fromAddress = process.env.EMAIL_FROM
+      ? `"EduMatch" <${process.env.EMAIL_FROM}>`
+      : `"EduMatch" <${process.env.EMAIL_USER}>`;
     await transporter.sendMail({
-      from: `"EduMatch" <${process.env.EMAIL_USER}>`,
+      from: fromAddress,
       to: toEmail,
       subject,
       html: htmlBody,
@@ -121,45 +144,32 @@ const sendOTPEmail = async (toEmail, otp, userName = '', type = 'reset') => {
   }
 };
 
+// ==================== AUTH HELPERS ====================
 const googleClient = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
 
 const generateToken = (id) => {
-  if (!process.env.JWT_SECRET) {
-    console.warn('Warning: JWT_SECRET is not set. Tokens may be insecure.');
-  }
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: "30d",
-  });
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
-// @desc    Send email verification OTP (before completing registration)
+// ==================== CONTROLLERS ====================
+
 // @route   POST /api/auth/send-verify-otp
-// @access  Public
 const sendVerifyOTP = async (req, res) => {
   try {
     const { email, name } = req.body;
-    if (!email) return res.status(400).json({ message: 'Email là bắt buộc' });
+    if (!email) return res.status(400).json({ message: 'Email la bat buoc' });
 
-    // Check if already fully registered
     const existing = await User.findOne({ email });
     if (existing && existing.isEmailVerified) {
-      return res.status(400).json({ message: 'Email này đã được đăng ký. Vui lòng đăng nhập.' });
+      return res.status(400).json({ message: 'Email nay da duoc dang ky. Vui long dang nhap.' });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = Date.now() + 10 * 60 * 1000;
 
-    // Always store in the in-memory OTP store (single source of truth for verify flow).
-    // This avoids the split-brain problem where OTP is sometimes in DB, sometimes in memory.
     if (!global._emailOTPStore) global._emailOTPStore = {};
-    global._emailOTPStore[email] = {
-      otp,
-      expires,
-      name: name || '',
-      verified: false,
-    };
+    global._emailOTPStore[email] = { otp, expires, name: name || '', verified: false };
 
-    // Also persist on the unverified user doc if one already exists (belt-and-suspenders).
     if (existing && !existing.isEmailVerified) {
       existing.resetPasswordOTP = otp;
       existing.resetPasswordOTPExpires = expires;
@@ -171,35 +181,29 @@ const sendVerifyOTP = async (req, res) => {
     res.json({
       success: true,
       message: emailSent
-        ? 'Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.'
-        : `Mã OTP: ${otp} (email chưa cấu hình)`,
+        ? 'Ma OTP da duoc gui den email cua ban. Vui long kiem tra hop thu.'
+        : `Ma OTP: ${otp} (email chua cau hinh)`,
       ...(process.env.NODE_ENV !== 'production' && { devOtp: otp }),
     });
   } catch (error) {
     console.error('Send Verify OTP Error:', error);
-    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+    res.status(500).json({ message: 'Loi may chu', error: error.message });
   }
 };
 
-// @desc    Verify email OTP (confirm email before/after registration)
 // @route   POST /api/auth/verify-email-otp
-// @access  Public
 const verifyEmailOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
-    if (!email || !otp) return res.status(400).json({ message: 'Email và OTP là bắt buộc' });
+    if (!email || !otp) return res.status(400).json({ message: 'Email va OTP la bat buoc' });
 
-    // Primary check: in-memory store (covers both new and existing-unverified users)
     if (!global._emailOTPStore) global._emailOTPStore = {};
     const stored = global._emailOTPStore[email];
     if (stored && stored.otp === otp && stored.expires > Date.now()) {
-      // Mark as verified so registerUser can proceed
       global._emailOTPStore[email].verified = true;
-      return res.json({ success: true, message: 'Xác thực email thành công!' });
+      return res.json({ success: true, message: 'Xac thuc email thanh cong!' });
     }
 
-    // Fallback: check DB (handles edge case where server restarted after sendVerifyOTP
-    // but the unverified user doc was already persisted)
     const user = await User.findOne({
       email,
       resetPasswordOTP: otp,
@@ -207,96 +211,75 @@ const verifyEmailOTP = async (req, res) => {
     });
 
     if (user) {
-      // Sync back to in-memory store so registerUser can find the verified flag
       global._emailOTPStore[email] = {
         otp,
         expires: user.resetPasswordOTPExpires,
         name: user.name || '',
         verified: true,
       };
-      // Clear OTP fields from DB
       user.resetPasswordOTP = undefined;
       user.resetPasswordOTPExpires = undefined;
       await user.save();
-      return res.json({ success: true, message: 'Xác thực email thành công!' });
+      return res.json({ success: true, message: 'Xac thuc email thanh cong!' });
     }
 
-    return res.status(400).json({ message: 'Mã OTP không chính xác hoặc đã hết hạn.' });
+    return res.status(400).json({ message: 'Ma OTP khong chinh xac hoac da het han.' });
   } catch (error) {
     console.error('Verify Email OTP Error:', error);
-    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+    res.status(500).json({ message: 'Loi may chu', error: error.message });
   }
 };
 
-
 // @route   POST /api/auth/register
-// @access  Public
 const registerUser = async (req, res) => {
   try {
     const { name, email, password, school, grade = '12', majorInterest = '' } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ message: "Please provide all required fields" });
+      return res.status(400).json({ message: 'Please provide all required fields' });
     }
 
-    // Check email was verified via OTP
     const verified = global._emailOTPStore?.[email]?.verified;
     if (!verified) {
-      return res.status(400).json({ message: "Email chưa được xác thực. Vui lòng xác thực OTP trước khi đăng ký." });
+      return res.status(400).json({ message: 'Email chua duoc xac thuc. Vui long xac thuc OTP truoc khi dang ky.' });
     }
 
     const userExists = await User.findOne({ email });
     if (userExists && userExists.isEmailVerified) {
-      return res.status(400).json({ message: "User already exists" });
+      return res.status(400).json({ message: 'User already exists' });
     }
 
-    // Clean up OTP store
     if (global._emailOTPStore?.[email]) delete global._emailOTPStore[email];
 
     const count = await User.countDocuments();
-    let finalRole = req.body.role || "student";
-    if (count === 0) finalRole = "admin";
+    let finalRole = req.body.role || 'student';
+    if (count === 0) finalRole = 'admin';
 
-    // Reuse unverified user doc if one exists, otherwise create fresh
     let user = await User.findOne({ email, isEmailVerified: false });
     if (user) {
       user.name = name;
       user.password = password;
       user.isEmailVerified = true;
       user.role = finalRole;
-      user.academicInfo = {
-        school: school || "",
-        grade: grade || "12",
-        majorInterest: majorInterest || "",
-      };
+      user.academicInfo = { school: school || '', grade: grade || '12', majorInterest: majorInterest || '' };
       user.resetPasswordOTP = undefined;
       user.resetPasswordOTPExpires = undefined;
       await user.save();
     } else {
       user = await User.create({
-        name,
-        email,
-        password,
+        name, email, password,
         isEmailVerified: true,
         role: finalRole,
-        academicInfo: {
-          school: school || "",
-          grade: grade || "12",
-          majorInterest: majorInterest || "",
-        },
+        academicInfo: { school: school || '', grade: grade || '12', majorInterest: majorInterest || '' },
       });
     }
 
     if (user) {
-      if (finalRole === "university") {
-        const universityName = school || "Đại học FPT (FPT University)";
-        let uni = await University.findOne({ name: { $regex: new RegExp("^" + universityName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + "$", "i") } });
+      if (finalRole === 'university') {
+        const universityName = school || 'Dai hoc FPT (FPT University)';
+        let uni = await University.findOne({ name: { $regex: new RegExp('^' + universityName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } });
         if (!uni) {
-          uni = await University.create({
-            name: universityName,
-            location: "Hà Nội, Việt Nam",
-            representativeId: user._id
-          });
+          uni = await University.create({ name: universityName, location: 'Ha Noi, Viet Nam', representativeId: user._id });
         } else {
           uni.representativeId = user._id;
           await uni.save();
@@ -308,111 +291,75 @@ const registerUser = async (req, res) => {
       res.status(201).json({
         success: true,
         data: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          avatar: user.avatar,
-          isPro: user.isPro,
-          subscription: user.subscription,
-          academicInfo: user.academicInfo,
-          favorites: user.favorites,
-          personalityTest: user.personalityTest,
-          skillEvaluation: user.skillEvaluation,
+          _id: user._id, name: user.name, email: user.email, role: user.role,
+          avatar: user.avatar, isPro: user.isPro, subscription: user.subscription,
+          academicInfo: user.academicInfo, favorites: user.favorites,
+          personalityTest: user.personalityTest, skillEvaluation: user.skillEvaluation,
           universityId: user.universityId,
         },
         token: generateToken(user._id),
       });
     } else {
-      res.status(400).json({ message: "Invalid user data" });
+      res.status(400).json({ message: 'Invalid user data' });
     }
   } catch (error) {
-    console.error("Register Error:", error);
-    res.status(500).json({ message: "Server error during registration", error: error.message });
+    console.error('Register Error:', error);
+    res.status(500).json({ message: 'Server error during registration', error: error.message });
   }
 };
 
-// @desc    Auth user & get token
 // @route   POST /api/auth/login
-// @access  Public
 const authUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-
     const user = await User.findOne({ email });
-
     if (user && (await user.matchPassword(password))) {
       res.json({
         success: true,
         data: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          avatar: user.avatar,
-          isPro: user.isPro,
-          subscription: user.subscription,
-          academicInfo: user.academicInfo,
-          favorites: user.favorites,
-          personalityTest: user.personalityTest,
-          skillEvaluation: user.skillEvaluation,
+          _id: user._id, name: user.name, email: user.email, role: user.role,
+          avatar: user.avatar, isPro: user.isPro, subscription: user.subscription,
+          academicInfo: user.academicInfo, favorites: user.favorites,
+          personalityTest: user.personalityTest, skillEvaluation: user.skillEvaluation,
           universityId: user.universityId,
         },
         token: generateToken(user._id),
       });
     } else {
-      res.status(401).json({ message: "Invalid email or password" });
+      res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
-    console.error("Login Error:", error);
-    res.status(500).json({ message: "Server error during login", error: error.message });
+    console.error('Login Error:', error);
+    res.status(500).json({ message: 'Server error during login', error: error.message });
   }
 };
 
-// @desc    Auth user via Google
 // @route   POST /api/auth/google
-// @access  Public
 const googleLogin = async (req, res) => {
   try {
     const { token, email: requestEmail, name: requestName, avatar: requestAvatar } = req.body;
-
-    let email = requestEmail;
-    let name = requestName;
-    let avatar = requestAvatar;
+    let email = requestEmail, name = requestName, avatar = requestAvatar;
 
     if (token) {
-      if (!googleClient) {
-        return res.status(500).json({ message: "Google login is not configured on the server." });
-      }
-
-      const ticket = await googleClient.verifyIdToken({
-        idToken: token,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
+      if (!googleClient) return res.status(500).json({ message: 'Google login is not configured on the server.' });
+      const ticket = await googleClient.verifyIdToken({ idToken: token, audience: process.env.GOOGLE_CLIENT_ID });
       const payload = ticket.getPayload();
-
       if (!payload || !payload.email || payload.email_verified !== true) {
-        return res.status(401).json({ message: "Invalid Google token or unverified email." });
+        return res.status(401).json({ message: 'Invalid Google token or unverified email.' });
       }
-
       email = payload.email;
-      name = payload.name || email.split("@")[0];
+      name = payload.name || email.split('@')[0];
       avatar = payload.picture || avatar;
     }
 
-    if (!email) {
-      return res.status(400).json({ message: "Google email is required" });
-    }
+    if (!email) return res.status(400).json({ message: 'Google email is required' });
 
     let user = await User.findOne({ email });
-
     if (!user) {
-      const secureRandomPassword = Math.random().toString(36).slice(-10);
       user = await User.create({
-        name: name || email.split("@")[0],
-        email,
-        password: secureRandomPassword,
-        role: "student",
+        name: name || email.split('@')[0], email,
+        password: Math.random().toString(36).slice(-10),
+        role: 'student',
         avatar: avatar || `https://i.pravatar.cc/150?u=${email}`,
       });
     }
@@ -420,145 +367,100 @@ const googleLogin = async (req, res) => {
     res.json({
       success: true,
       data: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        isPro: user.isPro,
-        subscription: user.subscription,
-        academicInfo: user.academicInfo,
-        favorites: user.favorites,
-        personalityTest: user.personalityTest,
-        skillEvaluation: user.skillEvaluation,
+        _id: user._id, name: user.name, email: user.email, role: user.role,
+        avatar: user.avatar, isPro: user.isPro, subscription: user.subscription,
+        academicInfo: user.academicInfo, favorites: user.favorites,
+        personalityTest: user.personalityTest, skillEvaluation: user.skillEvaluation,
         universityId: user.universityId,
       },
       token: generateToken(user._id),
     });
   } catch (error) {
-    console.error("Google Login Error:", error);
-    res.status(500).json({ message: "Server error during Google auth", error: error.message });
+    console.error('Google Login Error:', error);
+    res.status(500).json({ message: 'Server error during Google auth', error: error.message });
   }
 };
 
-// @desc    Forgot Password request (Generates OTP)
 // @route   POST /api/auth/forgot-password
-// @access  Public
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'Khong tim thay tai khoan voi email nay' });
 
-    if (!user) {
-      return res.status(404).json({ message: "Không tìm thấy tài khoản với email này" });
-    }
-
-    // Generate a secure 6-digit numeric OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Save to user with 10 minutes expiration
     user.resetPasswordOTP = otp;
     user.resetPasswordOTPExpires = Date.now() + 10 * 60 * 1000;
     await user.save();
 
     const emailSent = await sendOTPEmail(email, otp, user.name, 'reset');
 
-    const message = emailSent
-      ? 'Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư (bao gồm thư mục Spam).'
-      : `Mã OTP của bạn là: ${otp} (Email chưa được cấu hình trên server)`;
-
     res.json({
       success: true,
-      message,
-      // In dev/test mode expose OTP; in production rely solely on email
+      message: emailSent
+        ? 'Ma OTP da duoc gui den email cua ban. Vui long kiem tra hop thu (bao gom thu muc Spam).'
+        : `Ma OTP cua ban la: ${otp} (Email chua duoc cau hinh tren server)`,
       ...(process.env.NODE_ENV !== 'production' && { devOtp: otp }),
     });
   } catch (error) {
-    console.error("Forgot Password Error:", error);
-    res.status(500).json({ message: "Lỗi máy chủ trong quá trình khôi phục mật khẩu", error: error.message });
+    console.error('Forgot Password Error:', error);
+    res.status(500).json({ message: 'Loi may chu trong qua trinh khoi phuc mat khau', error: error.message });
   }
 };
 
-// @desc    Reset Password with OTP
 // @route   POST /api/auth/reset-password
-// @access  Public
 const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
-
     if (!email || !otp || !newPassword) {
-      return res.status(400).json({ message: "Vui lòng điền đầy đủ các thông tin yêu cầu" });
+      return res.status(400).json({ message: 'Vui long dien day du cac thong tin yeu cau' });
     }
 
     const user = await User.findOne({
       email,
       resetPasswordOTP: otp,
-      resetPasswordOTPExpires: { $gt: Date.now() }
+      resetPasswordOTPExpires: { $gt: Date.now() },
     });
 
-    if (!user) {
-      return res.status(400).json({ message: "Mã OTP không chính xác hoặc đã hết hạn" });
-    }
+    if (!user) return res.status(400).json({ message: 'Ma OTP khong chinh xac hoac da het han' });
 
-    // Update password and clear OTP fields
-    user.password = newPassword; // Will be cryptographically hashed via the pre-save hook in User.js
+    user.password = newPassword;
     user.resetPasswordOTP = undefined;
     user.resetPasswordOTPExpires = undefined;
-
     await user.save();
 
-    res.json({
-      success: true,
-      message: "Mật khẩu của bạn đã được thay đổi thành công! Vui lòng đăng nhập lại.",
-    });
+    res.json({ success: true, message: 'Mat khau cua ban da duoc thay doi thanh cong! Vui long dang nhap lai.' });
   } catch (error) {
-    console.error("Reset Password Error:", error);
-    res.status(500).json({ message: "Lỗi máy chủ trong quá trình đặt lại mật khẩu", error: error.message });
+    console.error('Reset Password Error:', error);
+    res.status(500).json({ message: 'Loi may chu trong qua trinh dat lai mat khau', error: error.message });
   }
 };
 
-// @desc    Change Password (authenticated)
 // @route   PUT /api/auth/change-password
-// @access  Private
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: "Vui lòng điền đầy đủ thông tin" });
-    }
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: "Mật khẩu mới phải có ít nhất 6 ký tự" });
-    }
+    if (!currentPassword || !newPassword) return res.status(400).json({ message: 'Vui long dien day du thong tin' });
+    if (newPassword.length < 6) return res.status(400).json({ message: 'Mat khau moi phai co it nhat 6 ky tu' });
 
     const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ message: "Không tìm thấy người dùng" });
-    }
+    if (!user) return res.status(404).json({ message: 'Khong tim thay nguoi dung' });
 
-    // Google OAuth users may have a random password — allow setting a real one
-    const isValidCurrentPassword = await user.matchPassword(currentPassword);
-    if (!isValidCurrentPassword) {
-      return res.status(400).json({ message: "Mật khẩu hiện tại không đúng" });
-    }
+    const isValid = await user.matchPassword(currentPassword);
+    if (!isValid) return res.status(400).json({ message: 'Mat khau hien tai khong dung' });
 
-    user.password = newPassword; // pre-save hook will hash it
+    user.password = newPassword;
     await user.save();
 
-    res.json({ success: true, message: "Mật khẩu đã được thay đổi thành công!" });
+    res.json({ success: true, message: 'Mat khau da duoc thay doi thanh cong!' });
   } catch (error) {
-    console.error("Change Password Error:", error);
-    res.status(500).json({ message: "Lỗi máy chủ", error: error.message });
+    console.error('Change Password Error:', error);
+    res.status(500).json({ message: 'Loi may chu', error: error.message });
   }
 };
 
 module.exports = {
-  registerUser,
-  authUser,
-  googleLogin,
-  forgotPassword,
-  resetPassword,
-  changePassword,
-  sendVerifyOTP,
-  verifyEmailOTP,
+  registerUser, authUser, googleLogin,
+  forgotPassword, resetPassword, changePassword,
+  sendVerifyOTP, verifyEmailOTP,
 };
