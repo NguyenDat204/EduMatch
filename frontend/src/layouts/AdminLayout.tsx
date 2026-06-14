@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, Briefcase, GraduationCap, Building2,
+  LayoutDashboard, Users, Briefcase, Building2,
   MessageSquare, Settings, LogOut, ChevronLeft, ChevronRight,
   ShieldCheck, Zap, Menu, X, Bell,
 } from 'lucide-react';
@@ -63,8 +63,8 @@ export const AdminLayout = () => {
       )}>
         {(!isCollapsed || isMobile) && (
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30 shrink-0">
-              <GraduationCap size={18} className="text-white" />
+            <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0">
+              <img src="/edumatch_logo.jpg" alt="EduMatch" className="w-full h-full object-cover" />
             </div>
             <div>
               <p className="text-sm font-extrabold text-white leading-none tracking-tight">EduMatch</p>
