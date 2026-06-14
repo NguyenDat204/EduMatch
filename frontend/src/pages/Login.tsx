@@ -14,8 +14,11 @@ declare global {
             callback: (response: { credential?: string }) => void;
             auto_select?: boolean;
             cancel_on_tap_outside?: boolean;
+            itp_support?: boolean;
           }) => void;
           prompt: () => void;
+          cancel: () => void;
+          renderButton: (parent: HTMLElement, options: Record<string, any>) => void;
         };
       };
     };
@@ -75,8 +78,11 @@ export const Login = () => {
         callback: handleGoogleCredentialResponse,
         auto_select: false,
         cancel_on_tap_outside: true,
+        itp_support: true,
       });
       window._googleInitialized = true;
+      // Tắt One Tap popup — chỉ dùng renderButton
+      window.google.accounts.id.cancel();
       setGoogleReady(true);
       if (googleBtnRef.current) {
         (window.google.accounts.id as any).renderButton(googleBtnRef.current, {
@@ -248,7 +254,9 @@ export const Login = () => {
                             client_id: googleClientId,
                             callback: handleGoogleCredentialResponse,
                             auto_select: false,
+                            itp_support: true,
                           });
+                          window.google.accounts.id.cancel();
                           window._googleInitialized = true;
                           setGoogleReady(true);
                           (window.google.accounts.id as any).renderButton(googleBtnRef.current, {
