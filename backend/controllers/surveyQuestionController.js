@@ -12,6 +12,8 @@ const getSurveyQuestions = async (req, res) => {
       type: question.type,
       options: question.options,
       category: question.category,
+      riasecGroup: question.riasecGroup || null,
+      phase: question.phase || 1,
     }));
 
     res.json({ success: true, data: payload });

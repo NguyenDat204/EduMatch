@@ -12,6 +12,22 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Decode JWT payload without a library (base64url → JSON)
+const decodeJwtPayload = (token: string): Record<string, any> | null => {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+  } catch {
+    return null;
+  }
+};
+
+const isTokenExpired = (token: string): boolean => {
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return true;
+  return Date.now() / 1000 > payload.exp;
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<AuthState>({
     user: null,
@@ -24,9 +40,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem('edumatch_token');
+
+      // No token → not authenticated, done immediately (no network call)
       if (!token) {
         setState(s => ({ ...s, isLoading: false }));
         return;
+      }
+
+      // Token is expired locally → clean up without hitting the network
+      if (isTokenExpired(token)) {
+        localStorage.removeItem('edumatch_token');
+        setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
+        return;
+      }
+
+      // Token looks valid — fetch fresh profile in the background.
+      // We set isLoading: false immediately using the cached user stub from the
+      // JWT payload so the UI is never blocked waiting for the network.
+      const payload = decodeJwtPayload(token);
+      if (payload?.id) {
+        // Optimistically mark as authenticated so protected pages render instantly.
+        // The full user object will be merged in once getProfile resolves.
+        setState(s => ({ ...s, isAuthenticated: true, isLoading: false }));
       }
 
       try {
@@ -39,24 +74,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             isLoading: false,
           });
         } else {
-          // Clean up invalid session
           localStorage.removeItem('edumatch_token');
-          setState({
-            user: null,
-            token: null,
-            isAuthenticated: false,
-            isLoading: false,
-          });
+          setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
         }
-      } catch (err) {
-        console.warn("Session restore failed, cleaning up credentials:", err);
+      } catch {
         localStorage.removeItem('edumatch_token');
-        setState({
-          user: null,
-          token: null,
-          isAuthenticated: false,
-          isLoading: false,
-        });
+        setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
       }
     };
 

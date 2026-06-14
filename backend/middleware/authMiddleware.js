@@ -9,36 +9,64 @@ const protect = async (req, res, next) => {
     req.headers.authorization.startsWith("Bearer")
   ) {
     try {
-      // Get token from header
       token = req.headers.authorization.split(" ")[1];
 
-      // Verify token
+      // Verify token — this is fast (CPU only, no DB)
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Get user from token
-      req.user = await User.findById(decoded.id).select("-password");
-      if (!req.user) {
-        return res.status(401).json({ message: "Not authorized, user not found" });
-      }
+      // Attach a lightweight user stub from JWT payload immediately.
+      // Full DB fetch is only done when the route explicitly needs full user data.
+      // Most routes only need decoded.id for ownership checks.
+      req.user = { _id: decoded.id, id: decoded.id };
+
+      // Lazy-load full user only for routes that require full profile data.
+      // Routes can call req.loadUser() if they need the full document.
+      req.loadUser = async () => {
+        if (req.user && req.user.email) return req.user; // already loaded
+        const fullUser = await User.findById(decoded.id).select("-password");
+        if (!fullUser) throw new Error("User not found");
+        req.user = fullUser;
+        return req.user;
+      };
 
       next();
     } catch (error) {
       console.error("Auth Middleware Error:", error.message);
       return res.status(401).json({ message: "Not authorized, token failed" });
     }
-  }
-
-  if (!token) {
+  } else {
     return res.status(401).json({ message: "Not authorized, no token" });
   }
 };
 
-const admin = (req, res, next) => {
-  if (req.user && req.user.role === "admin") {
+// For routes that truly need the full user document (profile, chat, etc.)
+const requireFullUser = async (req, res, next) => {
+  try {
+    await req.loadUser();
+    if (!req.user || !req.user.email) {
+      return res.status(401).json({ message: "Not authorized, user not found" });
+    }
     next();
-  } else {
+  } catch (err) {
+    return res.status(401).json({ message: "Not authorized, user not found" });
+  }
+};
+
+const admin = async (req, res, next) => {
+  try {
+    // req.user may only have {_id, id} from the optimised protect middleware.
+    // Load the full document to check the role (one DB call, cached on req.user).
+    if (!req.user.role) {
+      await req.loadUser();
+    }
+    if (req.user && req.user.role === "admin") {
+      next();
+    } else {
+      res.status(403).json({ message: "Not authorized as an admin" });
+    }
+  } catch {
     res.status(403).json({ message: "Not authorized as an admin" });
   }
 };
 
-module.exports = { protect, admin };
+module.exports = { protect, requireFullUser, admin };

@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, GraduationCap, LayoutDashboard, LogOut } from 'lucide-react';
+import { Menu, X, GraduationCap, LayoutDashboard, LogOut, Loader2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { useAIStatus } from '../hooks/useAIStatus';
 
 export const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
+  const { isAIRunning } = useAIStatus();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -16,6 +18,19 @@ export const Navbar = () => {
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-slate-200 dark:border-navy-800 bg-white/95 dark:bg-navy-950/95 backdrop-blur-sm shadow-nav">
+      {/* AI running indicator — thin animated bar at very top of navbar */}
+      {isAIRunning && (
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-slate-200 dark:bg-navy-800 overflow-hidden">
+          <div className="h-full bg-primary-500 animate-[shimmer_1.5s_ease-in-out_infinite]"
+            style={{ width: '40%', animation: 'ai-progress 1.5s ease-in-out infinite' }} />
+          <style>{`
+            @keyframes ai-progress {
+              0%   { transform: translateX(-100%); }
+              100% { transform: translateX(350%); }
+            }
+          `}</style>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
@@ -43,6 +58,16 @@ export const Navbar = () => {
 
           {/* Desktop Auth */}
           <div className="hidden md:flex items-center gap-3">
+            {/* AI processing badge — clickable, navigates to /result */}
+            {isAIRunning && isAuthenticated && (
+              <Link
+                to="/result"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800/50 text-primary-600 dark:text-primary-400 rounded-full text-xs font-semibold animate-pulse"
+              >
+                <Loader2 size={12} className="animate-spin" />
+                AI đang phân tích...
+              </Link>
+            )}
             {isAuthenticated && user ? (
               <div className="flex items-center gap-3">
                 <Link
@@ -89,13 +114,22 @@ export const Navbar = () => {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden p-2 text-slate-600 dark:text-slate-400 hover:text-primary-600 transition-colors"
-          >
-            {isOpen ? <X size={22} /> : <Menu size={22} />}
-          </button>
+          {/* Mobile right side */}
+          <div className="flex items-center gap-2 md:hidden">
+            {/* Mobile AI badge */}
+            {isAIRunning && isAuthenticated && (
+              <Link to="/result" className="flex items-center gap-1 px-2.5 py-1 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800/50 text-primary-600 rounded-full text-xs font-semibold animate-pulse">
+                <Loader2 size={10} className="animate-spin" />
+                AI
+              </Link>
+            )}
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className="p-2 text-slate-600 dark:text-slate-400 hover:text-primary-600 transition-colors"
+            >
+              {isOpen ? <X size={22} /> : <Menu size={22} />}
+            </button>
+          </div>
         </div>
       </div>
 

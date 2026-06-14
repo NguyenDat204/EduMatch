@@ -5,6 +5,7 @@ import { DashboardLayout } from '../layouts';
 import { CareerCard } from '../components/ui';
 import { aiApiService, surveyHistoryService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import { useAIStatus } from '../hooks/useAIStatus';
 
 interface IndustryResult {
   archetype: string;
@@ -19,7 +20,7 @@ const RESULT_STORAGE_KEY_BASE = 'edumatch_result_cache';
 const RESULT_SAVED_FINGERPRINT = 'edumatch_result_saved_fp';
 
 export const Result = () => {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, updateUserInState } = useAuth();
   const location = useLocation();
   const navigate  = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -29,6 +30,7 @@ export const Result = () => {
   const [savedError, setSavedError] = useState<string | null>(null);
 
   const fetchRef = useRef(false);
+  const { setAIRunning } = useAIStatus();
 
   useEffect(() => {
     if (!authLoading && !user) navigate('/login');
@@ -77,6 +79,8 @@ export const Result = () => {
         return;
       }
 
+      // Báo toàn hệ thống AI đang chạy (cross-tab)
+      setAIRunning(true);
       try {
         const data = await aiApiService.getRecommendations(surveyData);
         setResult(data);
@@ -86,6 +90,23 @@ export const Result = () => {
           const RESULT_STORAGE_KEY = `${RESULT_STORAGE_KEY_BASE}_${uid}`;
           localStorage.setItem(RESULT_STORAGE_KEY, JSON.stringify(data));
         } catch { /* ignore */ }
+
+        // Cập nhật auth context ngay lập tức để Dashboard / các trang khác
+        // thấy kết quả mới mà không cần reload trang
+        if (user && data) {
+          updateUserInState({
+            ...user,
+            personalityTest: {
+              archetype: data.archetype || '',
+              description: data.description || '',
+              suitabilityScore: data.suitabilityScore || 0,
+              insights: data.insights || '',
+              careers: data.careers || [],
+              answers: surveyData.answers || surveyData,
+              updatedAt: new Date(),
+            },
+          });
+        }
 
         // Lưu vào DB (survey history) — but avoid duplicate saves using fingerprint
         try {
@@ -122,6 +143,7 @@ export const Result = () => {
         setError('Phân tích AI thất bại. Vui lòng kiểm tra kết nối và thử lại.');
       } finally {
         setLoading(false);
+        setAIRunning(false); // AI xong — tắt indicator trên mọi tab
       }
     };
 
@@ -163,11 +185,47 @@ export const Result = () => {
   if (loading || authLoading) {
     return (
       <DashboardLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-          <Loader2 className="w-10 h-10 text-primary-600 animate-spin" />
-          <div className="text-center">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-1">AI đang phân tích hồ sơ của bạn...</h2>
-            <p className="text-sm text-slate-500">Đang đối chiếu với hàng triệu điểm dữ liệu nghề nghiệp.</p>
+        {/* Skeleton — user vẫn thấy layout, có thể navigate tab khác thoải mái */}
+        <div className="space-y-6 pb-10 animate-pulse">
+          {/* Hero skeleton */}
+          <div className="bg-navy-900/80 rounded-2xl p-7 md:p-9">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+              <div className="space-y-3 flex-1">
+                <div className="h-4 w-32 bg-white/10 rounded-full" />
+                <div className="h-8 w-64 bg-white/10 rounded-xl" />
+                <div className="h-4 w-full max-w-md bg-white/10 rounded" />
+                <div className="h-4 w-3/4 bg-white/10 rounded" />
+                <div className="flex gap-3 pt-2">
+                  <div className="h-10 w-36 bg-white/10 rounded-lg" />
+                  <div className="h-10 w-28 bg-white/10 rounded-lg" />
+                </div>
+              </div>
+              <div className="w-32 h-32 rounded-full bg-white/10 shrink-0" />
+            </div>
+          </div>
+          {/* Content skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl p-5 space-y-3">
+                  <div className="h-10 w-10 bg-slate-200 dark:bg-navy-700 rounded-lg" />
+                  <div className="h-5 w-3/4 bg-slate-200 dark:bg-navy-700 rounded" />
+                  <div className="h-4 w-full bg-slate-100 dark:bg-navy-800 rounded" />
+                  <div className="h-4 w-5/6 bg-slate-100 dark:bg-navy-800 rounded" />
+                </div>
+              ))}
+            </div>
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl p-5 h-32" />
+              <div className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl p-5 h-40" />
+            </div>
+          </div>
+          {/* Status text */}
+          <div className="flex items-center justify-center gap-3 py-4">
+            <Loader2 className="w-5 h-5 text-primary-600 animate-spin" />
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              AI đang phân tích hồ sơ... Bạn có thể chuyển tab khác, kết quả sẽ hiện ngay khi xong.
+            </p>
           </div>
         </div>
       </DashboardLayout>
@@ -271,7 +329,8 @@ export const Result = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {result.careers.slice(0, 5).map((career, idx) => {
                 const safeCareer = {
-                  id: career.id || career._id || String(idx),
+                  // Ưu tiên id từ DB, fallback sang title slug để CareerDetails tìm được
+                  id: career.id || career._id || `title:${encodeURIComponent(career.title || '')}`,
                   title: career.title || career.name || 'Nghề nghiệp phù hợp',
                   description: career.description || career.summary || 'Thông tin nghề chưa có đầy đủ.',
                   salary: career.salary || 'Chưa xác định',
@@ -279,6 +338,8 @@ export const Result = () => {
                   skills: Array.isArray(career.skills) ? career.skills : [],
                   suitability: career.suitability || 0,
                   category: career.category || '',
+                  // Truyền roadmap để CareerDetails hiển thị lộ trình AI
+                  roadmap: Array.isArray(career.roadmap) ? career.roadmap : [],
                 };
                 return <CareerCard key={safeCareer.id} career={safeCareer} />;
               })}

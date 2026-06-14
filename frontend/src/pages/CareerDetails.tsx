@@ -29,18 +29,61 @@ export const CareerDetails = () => {
     const fetchCareer = async () => {
       if (!id) return;
       try {
-        const response = await careerService.getCareerById(id);
-        if (response.success && response.data) {
-          setCareer(response.data);
-          
-          // Check if already in student's favorites list
-          if (user && user.favorites) {
-            const hasFavorite = response.data._id && user.favorites.includes(response.data._id) || user.favorites.includes(response.data.title);
-            setIsSaved(!!hasFavorite);
+        // Case 1: id là MongoDB ObjectId → gọi API bình thường
+        if (!id.startsWith('title:')) {
+          const response = await careerService.getCareerById(id);
+          if (response.success && response.data) {
+            setCareer(response.data);
+            if (user?.favorites) {
+              const hasFavorite = (response.data._id && user.favorites.includes(response.data._id)) || user.favorites.includes(response.data.title);
+              setIsSaved(!!hasFavorite);
+            }
+            setLoading(false);
+            return;
           }
-        } else {
-          console.warn('Career API returned no data for id', id);
         }
+
+        // Case 2: id là "title:<CareerTitle>" (từ AI result không có DB id)
+        // Tìm trong DB theo title, và fallback sang AI cache trong localStorage
+        const titleParam = id.startsWith('title:') ? decodeURIComponent(id.slice(6)) : id;
+
+        // Thử tìm theo title trong danh sách careers
+        try {
+          const allRes = await careerService.getCareers();
+          if (allRes.success && allRes.data) {
+            const matched = allRes.data.find(
+              (c: any) => c.title?.toLowerCase() === titleParam.toLowerCase()
+            );
+            if (matched) {
+              setCareer(matched);
+              if (user?.favorites) {
+                const hasFavorite = (matched._id && user.favorites.includes(matched._id)) || user.favorites.includes(matched.title);
+                setIsSaved(!!hasFavorite);
+              }
+              setLoading(false);
+              return;
+            }
+          }
+        } catch { /* ignore — fallback below */ }
+
+        // Fallback: dùng roadmap từ AI result cache trong localStorage
+        const uid = user?._id || user?.email || 'anon';
+        const cachedRaw = localStorage.getItem(`edumatch_result_cache_${uid}`);
+        if (cachedRaw) {
+          try {
+            const cached = JSON.parse(cachedRaw);
+            const aiCareer = (cached.careers || []).find(
+              (c: any) => c.title?.toLowerCase() === titleParam.toLowerCase()
+            );
+            if (aiCareer) {
+              setCareer({ ...aiCareer, _id: null });
+              setLoading(false);
+              return;
+            }
+          } catch { /* ignore */ }
+        }
+
+        // Không tìm được gì → để career = null, UI sẽ hiển thị not found
       } catch (err) {
         console.warn('Failed to load career detail:', err);
       } finally {
@@ -52,20 +95,19 @@ export const CareerDetails = () => {
   }, [id, user]);
 
   const handleToggleFavorite = async () => {
-    if (!id || !career || !user) return;
+    if (!career || !user) return;
+    // AI-only careers (không có DB id) không hỗ trợ favorite
+    const targetId = career._id || career.id;
+    if (!targetId || id?.startsWith('title:')) {
+      return;
+    }
     setSaveLoading(true);
     try {
-      // Send career ID or title
-      const targetId = career._id || career.id || id;
       const response = await careerService.toggleFavorite(targetId);
       if (response.success && response.data) {
-        // Update local state and auth context array
         const hasFavorite = response.data.includes(targetId);
         setIsSaved(hasFavorite);
-        updateUserInState({
-          ...user,
-          favorites: response.data
-        });
+        updateUserInState({ ...user, favorites: response.data });
       }
     } catch (err) {
       console.error("Favorite toggle failed:", err);

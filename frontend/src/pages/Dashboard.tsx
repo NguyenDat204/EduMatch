@@ -12,15 +12,18 @@ import {
   AlertCircle,
   CheckCircle2,
   BookOpen,
+  Loader2,
 } from 'lucide-react';
 import { DashboardLayout } from '../layouts';
 import { CareerCard } from '../components/ui/CareerCard';
 import { useAuth } from '../hooks/useAuth';
+import { useAIStatus } from '../hooks/useAIStatus';
 import { careerService } from '../services/api';
 import { feedbackService } from '../services/api';
 
 export const Dashboard = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, updateUserInState } = useAuth();
+  const { isAIRunning } = useAIStatus();
   const navigate = useNavigate();
 
   const [rating, setRating]                         = useState(5);
@@ -76,6 +79,37 @@ export const Dashboard = () => {
     loadFallbackCareers();
   }, [user, hasTakenSurvey, testResults]);
 
+  // Cross-tab sync: khi AI result được lưu vào localStorage từ tab /result,
+  // cập nhật user context ngay lập tức — không cần reload trang
+  useEffect(() => {
+    if (!user) return;
+    const uid = user._id || user.email || 'anon';
+    const resultKey = `edumatch_result_cache_${uid}`;
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === resultKey && e.newValue) {
+        try {
+          const fresh = JSON.parse(e.newValue);
+          if (fresh?.archetype) {
+            updateUserInState({
+              ...user,
+              personalityTest: {
+                archetype: fresh.archetype || '',
+                description: fresh.description || '',
+                suitabilityScore: fresh.suitabilityScore || 0,
+                insights: fresh.insights || '',
+                careers: fresh.careers || [],
+                updatedAt: new Date(),
+              },
+            });
+          }
+        } catch { /* ignore */ }
+      }
+    };
+
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [user, updateUserInState]);
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -120,6 +154,27 @@ export const Dashboard = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
+
+        {/* ── AI Running Banner — hiện khi AI đang xử lý (kể cả từ tab khác) ── */}
+        {isAIRunning && (
+          <div
+            onClick={() => navigate('/result')}
+            className="cursor-pointer flex items-center gap-3 px-4 py-3 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-800/50 rounded-xl animate-pulse"
+          >
+            <Loader2 size={16} className="text-primary-600 animate-spin shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-primary-700 dark:text-primary-300">
+                AI đang phân tích hồ sơ của bạn...
+              </p>
+              <p className="text-xs text-primary-500 dark:text-primary-400 truncate">
+                Bạn có thể dùng các trang khác. Kết quả sẽ tự cập nhật khi xong.
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-primary-600 dark:text-primary-400 shrink-0">
+              Xem kết quả →
+            </span>
+          </div>
+        )}
 
         {/* ── Welcome Banner ── */}
         <section className="relative overflow-hidden rounded-2xl bg-navy-900 text-white p-7 md:p-9">

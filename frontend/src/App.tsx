@@ -1,12 +1,15 @@
 import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
+import { AIStatusProvider } from './hooks/useAIStatus';
 import { AppRoutes } from './routes/AppRoutes';
 
 function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppRoutes />
+        <AIStatusProvider>
+          <AppRoutes />
+        </AIStatusProvider>
       </AuthProvider>
     </Router>
   );

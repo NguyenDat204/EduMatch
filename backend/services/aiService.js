@@ -236,33 +236,64 @@ const buildCareerRecommendationPrompt = (userData, careerContext, careerCatalog)
     ? careerCatalog.map((career) => career.title).join(", ")
     : "";
 
+  // Pre-calculate RIASEC scores to feed into prompt
+  const normalizeAns = (v) => {
+    const n = Number(v);
+    return Number.isNaN(n) ? 2 : Math.max(0, Math.min(4, Math.round(n)));
+  };
+  const riasecScores = {
+    R: ['q1','q2','q3','q4','q5'].reduce((s,k) => s + normalizeAns(answers[k]), 0),
+    I: ['q6','q7','q8','q9','q10'].reduce((s,k) => s + normalizeAns(answers[k]), 0),
+    A: ['q11','q12','q13','q14','q15'].reduce((s,k) => s + normalizeAns(answers[k]), 0),
+    S: ['q16','q17','q18','q19','q20'].reduce((s,k) => s + normalizeAns(answers[k]), 0),
+    E: ['q21','q22','q23','q24','q25'].reduce((s,k) => s + normalizeAns(answers[k]), 0),
+    C: ['q26','q27','q28','q29','q30'].reduce((s,k) => s + normalizeAns(answers[k]), 0),
+  };
+  const hollandCode = Object.entries(riasecScores).sort((a,b) => b[1]-a[1]).slice(0,3).map(([k]) => k).join('');
+
+  const phase2Answers = {
+    familyInfluence:  answers['q31'],
+    peerInfluence:    answers['q32'],
+    mediaInfluence:   answers['q33'],
+    schoolGuidance:   answers['q34'],
+    attention:        answers['q35'],
+    relevance:        answers['q36'],
+    confidence:       answers['q37'],
+    satisfaction:     answers['q38'],
+    workStylePref:    answers['q39'],
+    workEnvPref:      answers['q40'],
+  };
+
   return `
-Bạn là một chuyên gia hướng nghiệp hàng đầu thế giới với 20+ năm kinh nghiệm. Hãy phân tích chi tiết thông tin học sinh này để đưa ra gợi ý nghề nghiệp cá nhân hóa chất lượng cao.
+Bạn là một chuyên gia hướng nghiệp hàng đầu thế giới với 20+ năm kinh nghiệm, chuyên sử dụng mô hình Holland RIASEC.
 
 **HỒ SƠ HỌC SINH:**
-- Câu trả lời khảo sát: ${JSON.stringify(answers)}
+- Điểm RIASEC: R=${riasecScores.R}, I=${riasecScores.I}, A=${riasecScores.A}, S=${riasecScores.S}, E=${riasecScores.E}, C=${riasecScores.C}
+- Mã Holland: ${hollandCode}
+- Câu trả lời Giai đoạn 2 (ARCS + ngoại cảnh): ${JSON.stringify(phase2Answers)}
 - Thông tin học tập: ${JSON.stringify(academic)}
-- Kỹ năng tự đánh giá: ${JSON.stringify(userData.skillEvaluation || {})}
 
 **DANH SÁCH NGÀNH NGHỀ CÓ SẴN:**
 ${careerContext}
 
 **QUY TẮC QUAN TRỌNG:**
-1. Chỉ chọn các ngành nghề từ danh sách trên. Tuyệt đối không tự thêm ngành nghề mới.
-2. Nếu bạn không thể tìm đủ 4 ngành hợp lý, trả về ít hơn nhưng vẫn chỉ sử dụng tên có trong danh sách.
+1. Chỉ chọn ngành nghề từ danh sách trên. Tuyệt đối không tự thêm ngành mới.
+2. Nếu không tìm đủ 4 ngành hợp lý, trả về ít hơn — chỉ dùng tên có trong danh sách.
 3. Không bao gồm markdown, không thêm chú thích ngoài JSON.
-4. Hãy ưu tiên chọn các ngành nghề phù hợp nhất với dữ liệu khảo sát và học lực.
+4. Ưu tiên ngành phù hợp với Holland Code "${hollandCode}".
+5. Nếu Phase 2 cho thấy áp lực gia đình mâu thuẫn sở thích, đề cập trong insights.
 
-**TÊN NGÀNH NGHỀ ĐƯỢC PHÉP:** ${allowedTitles}
+**TÊN NGÀNH ĐƯỢC PHÉP:** ${allowedTitles}
 
 **ĐỊNH DẠNG JSON YÊU CẦU:**
 {
-  "archetype": "Tên hình mẫu (ví dụ: Nhà Phân Tích Logic)",
-  "description": "Mô tả 2-3 câu về đặc điểm nổi bật",
+  "archetype": "Tên hình mẫu dựa trên Holland Code (ví dụ: Nhà Phân Tích Logic — IRE)",
+  "hollandCode": "${hollandCode}",
+  "description": "Mô tả 2-3 câu về điểm mạnh dựa trên RIASEC",
   "suitabilityScore": 85,
   "careers": [
     {
-      "title": "Tên nghề",
+      "title": "Tên nghề (phải có trong danh sách được phép)",
       "description": "Mô tả vai trò",
       "salary": "Mức lương",
       "growth": "Tiềm năng phát triển",
@@ -280,7 +311,7 @@ ${careerContext}
       ]
     }
   ],
-  "insights": "Lời khuyên chiến lược chân thành"
+  "insights": "Lời khuyên chiến lược dựa trên Holland Code và ARCS, đề cập mâu thuẫn nếu có"
 }
 `;
 };
@@ -515,38 +546,48 @@ const getCareerRecommendations = async (userData) => {
     keys.reduce((sum, id) => sum + normalizeAnswer(answers[id]), 0);
 
   const riasecScores = {
-    Realistic: getSumScore(['q1', 'q2', 'q3']),
-    Investigative: getSumScore(['q4', 'q5', 'q6']),
-    Artistic: getSumScore(['q7', 'q8', 'q9']),
-    Social: getSumScore(['q10', 'q11', 'q12']),
-    Enterprising: getSumScore(['q13', 'q14', 'q15']),
-    Conventional: getSumScore(['q16', 'q17', 'q18']),
+    Realistic:     getSumScore(['q1', 'q2', 'q3', 'q4', 'q5']),
+    Investigative: getSumScore(['q6', 'q7', 'q8', 'q9', 'q10']),
+    Artistic:      getSumScore(['q11', 'q12', 'q13', 'q14', 'q15']),
+    Social:        getSumScore(['q16', 'q17', 'q18', 'q19', 'q20']),
+    Enterprising:  getSumScore(['q21', 'q22', 'q23', 'q24', 'q25']),
+    Conventional:  getSumScore(['q26', 'q27', 'q28', 'q29', 'q30']),
   };
 
-  const mbtiScore = {
-    E: getSumScore(['q19', 'q20']),
-    S: getSumScore(['q21', 'q22']),
-    T: getSumScore(['q23', 'q24']),
-    J: getSumScore(['q25', 'q26']),
+  // Phase 2 — ARCS motivation scores (q35–q38, scale 1-5)
+  const arcsScores = {
+    attention:    normalizeAnswer(answers['q35']),
+    relevance:    normalizeAnswer(answers['q36']),
+    confidence:   normalizeAnswer(answers['q37']),
+    satisfaction: normalizeAnswer(answers['q38']),
   };
+  const motivationBonus = Object.values(arcsScores).reduce((s, v) => s + v, 0); // 0–16
 
-  const pickLetter = (positive, negative, score) => (score >= 5 ? positive : negative);
-  const mbtiType = `${pickLetter('E', 'I', mbtiScore.E)}${pickLetter('S', 'N', mbtiScore.S)}${pickLetter('T', 'F', mbtiScore.T)}${pickLetter('J', 'P', mbtiScore.J)}`;
+  // Phase 2 — Work environment preference (q39, q40)
+  const prefersStructure = ['quy trình cố định rõ ràng', 'thiên về quy trình'].includes(
+    String(answers['q40'] || '').toLowerCase()
+  );
+  const prefersData = String(answers['q41'] || '').toLowerCase().includes('dữ liệu');
 
-  const findTopRIASEC = Object.entries(riasecScores).sort((a, b) => b[1] - a[1])[0] || ['Investigative', 0];
-  const [topCategory] = findTopRIASEC;
+  // Boost Conventional if structured preference
+  if (prefersStructure) riasecScores.Conventional += 2;
+
+  // Derive Holland Code — top 3 groups
+  const sortedRIASEC = Object.entries(riasecScores).sort((a, b) => b[1] - a[1]);
+  const hollandCode = sortedRIASEC.slice(0, 3).map(([letter]) => letter[0]).join('');
+  const topCategory = sortedRIASEC[0][0];
 
   const categoryBoost = (careerCategory) => {
-    const normalize = (value) => Math.max(0, Math.min(1, value / 12));
+    const normalize = (value) => Math.max(0, Math.min(1, value / 20)); // max 5 câu × 4 điểm = 20
     switch (careerCategory) {
       case 'Công nghệ':
-        return (normalize(riasecScores.Realistic) * 0.45 + normalize(riasecScores.Investigative) * 0.45 + normalize(riasecScores.Conventional) * 0.1);
+        return normalize(riasecScores.Realistic) * 0.4 + normalize(riasecScores.Investigative) * 0.4 + normalize(riasecScores.Conventional) * 0.2;
       case 'Trí tuệ nhân tạo':
-        return (normalize(riasecScores.Investigative) * 0.55 + normalize(riasecScores.Realistic) * 0.3 + normalize(riasecScores.Conventional) * 0.15);
+        return normalize(riasecScores.Investigative) * 0.55 + normalize(riasecScores.Realistic) * 0.3 + normalize(riasecScores.Conventional) * 0.15;
       case 'Thiết kế':
-        return (normalize(riasecScores.Artistic) * 0.6 + normalize(riasecScores.Social) * 0.25 + normalize(riasecScores.Realistic) * 0.15);
+        return normalize(riasecScores.Artistic) * 0.6 + normalize(riasecScores.Social) * 0.25 + normalize(riasecScores.Realistic) * 0.15;
       case 'Quản lý & Kinh doanh':
-        return (normalize(riasecScores.Enterprising) * 0.55 + normalize(riasecScores.Social) * 0.3 + normalize(riasecScores.Conventional) * 0.15);
+        return normalize(riasecScores.Enterprising) * 0.55 + normalize(riasecScores.Social) * 0.3 + normalize(riasecScores.Conventional) * 0.15;
       default:
         return 0.5;
     }
@@ -554,10 +595,12 @@ const getCareerRecommendations = async (userData) => {
 
   const extrasByMBTI = (careerCategory) => {
     let bonus = 0;
-    if (careerCategory === 'Công nghệ' && mbtiType.includes('I')) bonus += 3;
-    if (careerCategory === 'Trí tuệ nhân tạo' && mbtiType.startsWith('IN')) bonus += 4;
-    if (careerCategory === 'Thiết kế' && mbtiType.includes('F')) bonus += 3;
-    if (careerCategory === 'Quản lý & Kinh doanh' && mbtiType.includes('E')) bonus += 3;
+    if (careerCategory === 'Công nghệ' && hollandCode.includes('I')) bonus += 3;
+    if (careerCategory === 'Trí tuệ nhân tạo' && hollandCode.startsWith('I')) bonus += 4;
+    if (careerCategory === 'Thiết kế' && hollandCode.includes('A')) bonus += 3;
+    if (careerCategory === 'Quản lý & Kinh doanh' && hollandCode.includes('E')) bonus += 3;
+    // ARCS motivation bonus (normalized: 0-4 extra points)
+    bonus += Math.round(motivationBonus / 4);
     return bonus;
   };
 
@@ -571,27 +614,20 @@ const getCareerRecommendations = async (userData) => {
 
   const getArchetypeLabel = () => {
     switch (topCategory) {
-      case 'Realistic':
-        return 'Nhà Thực Hành Kỹ Thuật';
-      case 'Investigative':
-        return 'Nhà Khám Phá Phân Tích';
-      case 'Artistic':
-        return 'Nhà Sáng Tạo Trải Nghiệm';
-      case 'Social':
-        return 'Nhà Hỗ Trợ Đồng Cảm';
-      case 'Enterprising':
-        return 'Nhà Khởi Nghiệp Lãnh Đạo';
-      case 'Conventional':
-        return 'Nhà Quản Trị Chi Tiết';
-      default:
-        return 'Nhà Định Hướng Tích Hợp';
+      case 'Realistic':      return 'Nhà Thực Hành Kỹ Thuật';
+      case 'Investigative':  return 'Nhà Khám Phá Phân Tích';
+      case 'Artistic':       return 'Nhà Sáng Tạo Trải Nghiệm';
+      case 'Social':         return 'Nhà Hỗ Trợ Đồng Cảm';
+      case 'Enterprising':   return 'Nhà Khởi Nghiệp Lãnh Đạo';
+      case 'Conventional':   return 'Nhà Quản Trị Chi Tiết';
+      default:               return 'Nhà Định Hướng Tích Hợp';
     }
   };
 
   const archetypeLabel = getArchetypeLabel();
-  const archetype = `${mbtiType} • ${archetypeLabel}`;
-  const description = `Bạn có khuynh hướng ${archetypeLabel.toLowerCase()} với phong cách ${mbtiType}. Điều này giúp bạn phù hợp với các công việc cần sự ${topCategory === 'Artistic' ? 'sáng tạo' : topCategory === 'Investigative' ? 'khảo sát' : topCategory === 'Social' ? 'giao tiếp' : topCategory === 'Enterprising' ? 'lãnh đạo' : topCategory === 'Conventional' ? 'tổ chức' : 'thực hành'} rõ ràng.`;
-  const insights = `Kết quả cho thấy bạn nên ưu tiên các ngành nghề phù hợp với nhóm ${topCategory} và phong cách ${mbtiType}. Hãy bổ sung thêm kỹ năng thực hành, tư duy phân tích và khả năng làm việc nhóm để gia tăng cơ hội phát triển.`;
+  const archetype = `${archetypeLabel} (${hollandCode})`;
+  const description = `Mã Holland của bạn là **${hollandCode}** — phản ánh khuynh hướng ${archetypeLabel.toLowerCase()}. Ba nhóm tính cách nổi trội nhất của bạn là ${sortedRIASEC.slice(0,3).map(([k,v]) => `${k} (${v}đ)`).join(', ')}. Sự kết hợp này định hình phong cách làm việc và môi trường phù hợp nhất với bạn.`;
+  const insights = `Dựa trên mã Holland **${hollandCode}**, bạn nên ưu tiên các ngành nghề phù hợp với nhóm ${topCategory}. Điểm động lực ARCS của bạn cho thấy ${arcsScores.confidence >= 2 ? 'bạn khá tự tin' : 'bạn cần củng cố thêm niềm tin'} vào năng lực bản thân. Hãy tiếp tục rèn luyện thực hành và xây dựng portfolio để tăng cơ hội phát triển.`;
 
   const result = {
     archetype,

@@ -154,36 +154,417 @@ const seedDatabase = async () => {
 
     const questionCount = await SurveyQuestion.countDocuments();
     if (questionCount === 0) {
-      console.log("Seeding survey questions...");
+      console.log("Seeding survey questions (RIASEC + ARCS framework)...");
       await SurveyQuestion.create([
-        { questionId: 'q1', text: 'Bạn có thích tự tay lắp ráp, sửa chữa hoặc tạo ra các thiết bị, mô hình, máy móc hơn là chỉ đọc lý thuyết?', type: 'choice', options: ['Không thích', 'Thỉnh thoảng', 'Rất thích'], category: 'personality', order: 1 },
-        { questionId: 'q2', text: 'Bạn cảm thấy thế nào khi phải làm việc với dụng cụ, máy móc, thiết bị hoặc sản phẩm kỹ thuật?', type: 'scale', options: [], category: 'skill', order: 2 },
-        { questionId: 'q3', text: 'Bạn có thấy hào hứng khi tham gia các hoạt động thực hành, thí nghiệm hoặc dự án STEM có tính ứng dụng cao không?', type: 'scale', options: [], category: 'interest', order: 3 },
-        { questionId: 'q4', text: 'Bạn có thích tìm hiểu sâu cách thức hoạt động của một hiện tượng, phân tích nguyên nhân và kiểm chứng lý thuyết không?', type: 'scale', options: [], category: 'interest', order: 4 },
-        { questionId: 'q5', text: 'Bạn có thường tự tìm đọc sách, bài viết về khoa học, công nghệ, toán học hoặc tư duy logic ngoài giờ học không?', type: 'choice', options: ['Hiếm khi', 'Thỉnh thoảng', 'Rất thường xuyên'], category: 'interest', order: 5 },
-        { questionId: 'q6', text: 'Khi gặp một vấn đề phức tạp, bạn thường thích tự phân tích dữ liệu, so sánh số liệu và rút ra kết luận hơn là dựa vào cảm tính?', type: 'choice', options: ['Không thích', 'Bình thường', 'Rất thích'], category: 'skill', order: 6 },
-        { questionId: 'q7', text: 'Bạn có thích tạo ra ý tưởng mới, thiết kế hình ảnh, kể chuyện qua hình ảnh hoặc sản phẩm sáng tạo không?', type: 'choice', options: ['Không quan tâm', 'Có một chút', 'Rất yêu thích'], category: 'interest', order: 7 },
-        { questionId: 'q8', text: 'Bạn có thường tưởng tượng ra những cách thức mới để làm một việc thay vì làm theo hướng dẫn cố định?', type: 'scale', options: [], category: 'skill', order: 8 },
-        { questionId: 'q9', text: 'Bạn có cảm thấy hứng khởi khi được thoải mái biểu đạt suy nghĩ, cảm xúc và quan điểm cá nhân trong một dự án?', type: 'scale', options: [], category: 'personality', order: 9 },
-        { questionId: 'q10', text: 'Bạn có thấy vui khi giúp đỡ người khác học hỏi, lắng nghe chia sẻ và góp phần giải quyết khó khăn cho họ?', type: 'choice', options: ['Không quá quan tâm', 'Có thể', 'Rất thích'], category: 'interest', order: 10 },
-        { questionId: 'q11', text: 'Bạn có thích làm việc nhóm, thuyết trình hoặc trao đổi ý tưởng với nhiều người hơn là làm việc một mình?', type: 'scale', options: [], category: 'skill', order: 11 },
-        { questionId: 'q12', text: 'Bạn có cảm thấy tự tin khi đứng trước đám đông để giải thích một vấn đề hoặc hướng dẫn người khác?', type: 'choice', options: ['Không tự tin', 'Tương đối tự tin', 'Rất tự tin'], category: 'personality', order: 12 },
-        { questionId: 'q13', text: 'Bạn có thích đề xuất ý tưởng, thuyết phục người khác và dẫn dắt một nhóm để đạt mục tiêu chung?', type: 'choice', options: ['Rất ít', 'Đôi khi', 'Rất thích'], category: 'interest', order: 13 },
-        { questionId: 'q14', text: 'Bạn có chủ động đặt mục tiêu lớn và tìm cách đạt được chúng bằng kế hoạch cụ thể không?', type: 'scale', options: [], category: 'skill', order: 14 },
-        { questionId: 'q15', text: 'Bạn có thích tham gia hoạt động tổ chức, quản lý sự kiện, khởi nghiệp hoặc bán ý tưởng của bản thân?', type: 'scale', options: [], category: 'personality', order: 15 },
-        { questionId: 'q16', text: 'Bạn có cảm thấy thoải mái khi sắp xếp dữ liệu, quản lý hồ sơ hoặc làm việc với hệ thống quy tắc rõ ràng không?', type: 'choice', options: ['Không thích', 'Bình thường', 'Rất thích'], category: 'skill', order: 16 },
-        { questionId: 'q17', text: 'Bạn có thường chú ý đến chi tiết, hoàn thành công việc đúng hạn và tuân thủ quy trình đã đặt ra?', type: 'scale', options: [], category: 'skill', order: 17 },
-        { questionId: 'q18', text: 'Bạn có thích làm việc theo quy trình, hệ thống và báo cáo kết quả một cách chính xác hơn là làm việc tùy hứng?', type: 'choice', options: ['Không', 'Thỉnh thoảng', 'Rất phù hợp'], category: 'interest', order: 18 },
-        { questionId: 'q19', text: 'Sau một ngày dài, bạn thường muốn nạp lại năng lượng bằng cách...', type: 'choice', options: ['Ở một mình', 'Vừa đủ', 'Gặp gỡ bạn bè'], category: 'personality', order: 19 },
-        { questionId: 'q20', text: 'Khi học điều gì mới, bạn thích bắt đầu từ những chi tiết cụ thể hay từ ý tưởng lớn và các khả năng tiềm năng?', type: 'choice', options: ['Chi tiết rõ ràng', 'Cách nhìn tổng quát', 'Cả hai'], category: 'interest', order: 20 },
-        { questionId: 'q21', text: 'Khi đưa ra quyết định quan trọng, bạn thường dựa vào điều gì nhiều hơn?', type: 'choice', options: ['Logic và phân tích', 'Cảm xúc và giá trị', 'Cân bằng cả hai'], category: 'interest', order: 21 },
-        { questionId: 'q22', text: 'Bạn thích môi trường làm việc có...', type: 'choice', options: ['Kế hoạch rõ ràng', 'Linh hoạt thay đổi', 'Một chút cả hai'], category: 'personality', order: 22 },
-        { questionId: 'q23', text: 'Bạn cảm thấy thoải mái hơn khi...', type: 'choice', options: ['Tuân theo thời hạn và kế hoạch', 'Để ý tưởng phát triển tự nhiên', 'Cả hai tùy trường hợp'], category: 'skill', order: 23 },
-        { questionId: 'q24', text: 'Bạn tin tưởng hơn vào...', type: 'choice', options: ['Kinh nghiệm và chi tiết', 'Trực giác và mô hình tổng thể', 'Cả hai'], category: 'personality', order: 24 },
-        { questionId: 'q25', text: 'Bạn thường thích môi trường làm việc có lịch trình rõ ràng hay có thể thay đổi linh hoạt?', type: 'choice', options: ['Lịch trình rõ ràng', 'Linh hoạt thay đổi', 'Cả hai'], category: 'personality', order: 25 },
-        { questionId: 'q26', text: 'Bạn có xu hướng hoàn thành công việc trước hạn hay để dành đến gần hạn chót?', type: 'choice', options: ['Hoàn thành sớm', 'Gần hạn', 'Tùy cảm hứng'], category: 'skill', order: 26 },
+        // ===== GIAI ĐOẠN 1: RIASEC — NHÓM R (Realistic) — Câu 1-5 =====
+        {
+          questionId: 'q1',
+          text: 'Bạn thích tự tay lập kế hoạch, thiết kế và xây dựng thứ gì đó (như lắp ráp mô hình, hàn điện, làm đồ thủ công)?',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: 'R',
+          phase: 1,
+          order: 1
+        },
+        {
+          questionId: 'q2',
+          text: 'Bạn thích sử dụng các công cụ như tua vít, kìm, cờ lê để tự tay sửa chữa đồ vật hư hỏng?',
+          type: 'scale',
+          options: [],
+          category: 'skill',
+          riasecGroup: 'R',
+          phase: 1,
+          order: 2
+        },
+        {
+          questionId: 'q3',
+          text: 'Bạn có muốn tìm hiểu cách sửa chữa thiết bị điện trong nhà (quạt, đèn, ổ cắm) khi chúng hỏng?',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: 'R',
+          phase: 1,
+          order: 3
+        },
+        {
+          questionId: 'q4',
+          text: 'Bạn có thích tìm hiểu về canh tác nông nghiệp, ví dụ cách sử dụng phân bón để tăng năng suất cây trồng?',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: 'R',
+          phase: 1,
+          order: 4
+        },
+        {
+          questionId: 'q5',
+          text: 'Bạn cảm thấy hứng khởi khi vận hành, lắp đặt hoặc tìm hiểu nguyên lý hoạt động của các thiết bị điện tử, máy móc?',
+          type: 'scale',
+          options: [],
+          category: 'skill',
+          riasecGroup: 'R',
+          phase: 1,
+          order: 5
+        },
+        // ===== GIAI ĐOẠN 1: RIASEC — NHÓM I (Investigative) — Câu 6-10 =====
+        {
+          questionId: 'q6',
+          text: 'Bạn thích làm việc độc lập để nghiên cứu, phân tích một vấn đề hơn là chờ người khác hướng dẫn?',
+          type: 'scale',
+          options: [],
+          category: 'personality',
+          riasecGroup: 'I',
+          phase: 1,
+          order: 6
+        },
+        {
+          questionId: 'q7',
+          text: 'Bạn thích giải các bài toán khó, câu đố logic hoặc các vấn đề khoa học phức tạp?',
+          type: 'scale',
+          options: [],
+          category: 'skill',
+          riasecGroup: 'I',
+          phase: 1,
+          order: 7
+        },
+        {
+          questionId: 'q8',
+          text: 'Bạn có quan tâm đến việc nghiên cứu bệnh lý trên động thực vật hoặc tìm hiểu cơ chế sinh học để điều trị?',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: 'I',
+          phase: 1,
+          order: 8
+        },
+        {
+          questionId: 'q9',
+          text: 'Bạn có thấy thú vị khi tìm hiểu về cách hoạt động của hệ thống pháp luật, cách tranh tụng, hay tư duy biện chứng?',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: 'I',
+          phase: 1,
+          order: 9
+        },
+        {
+          questionId: 'q10',
+          text: 'Bạn có thường xuyên quan sát sự vật xung quanh, đặt câu hỏi "tại sao?" và muốn tìm hiểu sâu về nguyên nhân?',
+          type: 'scale',
+          options: [],
+          category: 'personality',
+          riasecGroup: 'I',
+          phase: 1,
+          order: 10
+        },
+        // ===== GIAI ĐOẠN 1: RIASEC — NHÓM A (Artistic) — Câu 11-15 =====
+        {
+          questionId: 'q11',
+          text: 'Bạn thích vẽ tranh, tô màu, điêu khắc hoặc làm thủ công mỹ nghệ như một cách tự biểu đạt?',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: 'A',
+          phase: 1,
+          order: 11
+        },
+        {
+          questionId: 'q12',
+          text: 'Bạn thích học chơi nhạc cụ, ca hát hoặc thưởng thức và phân tích các tác phẩm âm nhạc?',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: 'A',
+          phase: 1,
+          order: 12
+        },
+        {
+          questionId: 'q13',
+          text: 'Bạn thích thể hiện bản thân qua diễn kịch, múa, nhiếp ảnh hoặc các loại hình nghệ thuật thị giác?',
+          type: 'scale',
+          options: [],
+          category: 'personality',
+          riasecGroup: 'A',
+          phase: 1,
+          order: 13
+        },
+        {
+          questionId: 'q14',
+          text: 'Bạn có hứng thú với việc thiết kế thời trang, trang trí nội thất hoặc tạo ra những sản phẩm mang dấu ấn thẩm mỹ cá nhân?',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: 'A',
+          phase: 1,
+          order: 14
+        },
+        {
+          questionId: 'q15',
+          text: 'Bạn thích giải trí và mang lại niềm vui cho mọi người qua biểu diễn, kể chuyện hoặc sáng tác nội dung sáng tạo?',
+          type: 'scale',
+          options: [],
+          category: 'personality',
+          riasecGroup: 'A',
+          phase: 1,
+          order: 15
+        },
+        // ===== GIAI ĐOẠN 1: RIASEC — NHÓM S (Social) — Câu 16-20 =====
+        {
+          questionId: 'q16',
+          text: 'Bạn thích giúp đỡ người khác tìm cách giải quyết vấn đề cá nhân — dù chỉ là lắng nghe và đưa ra góc nhìn?',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: 'S',
+          phase: 1,
+          order: 16
+        },
+        {
+          questionId: 'q17',
+          text: 'Bạn cảm thấy muốn chăm sóc, hỗ trợ người bệnh, người khuyết tật hoặc những người đang gặp khó khăn?',
+          type: 'scale',
+          options: [],
+          category: 'personality',
+          riasecGroup: 'S',
+          phase: 1,
+          order: 17
+        },
+        {
+          questionId: 'q18',
+          text: 'Bạn thích giảng dạy, hướng dẫn hoặc đào tạo người khác học một kỹ năng mới?',
+          type: 'scale',
+          options: [],
+          category: 'skill',
+          riasecGroup: 'S',
+          phase: 1,
+          order: 18
+        },
+        {
+          questionId: 'q19',
+          text: 'Bạn thường tích cực tham gia các hoạt động tình nguyện, cộng đồng hoặc chương trình hỗ trợ xã hội?',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: 'S',
+          phase: 1,
+          order: 19
+        },
+        {
+          questionId: 'q20',
+          text: 'Bạn thấy mình có khả năng tự nhiên trong việc lắng nghe, thấu hiểu và an ủi người đang gặp khó khăn?',
+          type: 'scale',
+          options: [],
+          category: 'personality',
+          riasecGroup: 'S',
+          phase: 1,
+          order: 20
+        },
+        // ===== GIAI ĐOẠN 1: RIASEC — NHÓM E (Enterprising) — Câu 21-25 =====
+        {
+          questionId: 'q21',
+          text: 'Bạn thích thuyết phục người khác ủng hộ ý tưởng, quan điểm hoặc một dự án bạn tin tưởng?',
+          type: 'scale',
+          options: [],
+          category: 'skill',
+          riasecGroup: 'E',
+          phase: 1,
+          order: 21
+        },
+        {
+          questionId: 'q22',
+          text: 'Bạn có mong muốn tự khởi nghiệp hoặc điều hành doanh nghiệp riêng trong tương lai?',
+          type: 'scale',
+          options: [],
+          category: 'personality',
+          riasecGroup: 'E',
+          phase: 1,
+          order: 22
+        },
+        {
+          questionId: 'q23',
+          text: 'Bạn thích giữ vai trò giám sát, phân công và theo dõi tiến độ công việc của cả nhóm?',
+          type: 'scale',
+          options: [],
+          category: 'skill',
+          riasecGroup: 'E',
+          phase: 1,
+          order: 23
+        },
+        {
+          questionId: 'q24',
+          text: 'Bạn cảm thấy tự nhiên khi dẫn dắt hoặc gây ảnh hưởng tích cực đến quyết định của tập thể?',
+          type: 'scale',
+          options: [],
+          category: 'personality',
+          riasecGroup: 'E',
+          phase: 1,
+          order: 24
+        },
+        {
+          questionId: 'q25',
+          text: 'Bạn thích làm việc trong môi trường bán hàng, tiếp thị, đàm phán hoặc các hoạt động kinh doanh nói chung?',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: 'E',
+          phase: 1,
+          order: 25
+        },
+        // ===== GIAI ĐOẠN 1: RIASEC — NHÓM C (Conventional) — Câu 26-30 =====
+        {
+          questionId: 'q26',
+          text: 'Bạn thích sắp xếp, lưu trữ thông tin một cách có hệ thống và chuẩn bị báo cáo rõ ràng, chính xác?',
+          type: 'scale',
+          options: [],
+          category: 'skill',
+          riasecGroup: 'C',
+          phase: 1,
+          order: 26
+        },
+        {
+          questionId: 'q27',
+          text: 'Bạn cảm thấy thoải mái và làm việc hiệu quả hơn trong một môi trường ngăn nắp, có trật tự rõ ràng?',
+          type: 'scale',
+          options: [],
+          category: 'personality',
+          riasecGroup: 'C',
+          phase: 1,
+          order: 27
+        },
+        {
+          questionId: 'q28',
+          text: 'Bạn thích làm việc với các con số, số liệu tài chính hoặc quản lý ngân sách một cách chính xác?',
+          type: 'scale',
+          options: [],
+          category: 'skill',
+          riasecGroup: 'C',
+          phase: 1,
+          order: 28
+        },
+        {
+          questionId: 'q29',
+          text: 'Bạn cảm thấy phù hợp với các công việc văn phòng như quản lý hồ sơ, điền biểu mẫu hoặc xử lý giấy tờ?',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: 'C',
+          phase: 1,
+          order: 29
+        },
+        {
+          questionId: 'q30',
+          text: 'Bạn có xu hướng tự nhiên chú trọng vào chi tiết và tuân thủ các quy tắc, quy trình đã đề ra một cách nghiêm túc?',
+          type: 'scale',
+          options: [],
+          category: 'personality',
+          riasecGroup: 'C',
+          phase: 1,
+          order: 30
+        },
+        // ===== GIAI ĐOẠN 2: ARCS + YẾU TỐ NGOẠI LẠI — Câu 31-40 =====
+        {
+          questionId: 'q31',
+          text: 'Các thành viên trong gia đình (bố mẹ, anh chị em) có ảnh hưởng đến định hướng nghề nghiệp của bạn không?',
+          type: 'choice',
+          options: ['Không ảnh hưởng', 'Có một chút', 'Ảnh hưởng nhiều', 'Họ quyết định thay tôi'],
+          category: 'personality',
+          riasecGroup: null,
+          phase: 2,
+          order: 31
+        },
+        {
+          questionId: 'q32',
+          text: 'Bạn có xu hướng chọn ngành nghề theo lời khuyên hoặc xu hướng phổ biến trong nhóm bạn bè không?',
+          type: 'choice',
+          options: ['Hoàn toàn không', 'Đôi khi có', 'Khá thường xuyên', 'Đây là yếu tố chính'],
+          category: 'personality',
+          riasecGroup: null,
+          phase: 2,
+          order: 32
+        },
+        {
+          questionId: 'q33',
+          text: 'Thông tin từ TV, Internet hoặc mạng xã hội có thay đổi cách nhìn của bạn về các ngành nghề không?',
+          type: 'choice',
+          options: ['Rất ít', 'Có nhưng không nhiều', 'Khá ảnh hưởng', 'Rất ảnh hưởng'],
+          category: 'interest',
+          riasecGroup: null,
+          phase: 2,
+          order: 33
+        },
+        {
+          questionId: 'q34',
+          text: 'Các chương trình tư vấn hướng nghiệp tại trường học có thực sự giúp ích cho bạn trong việc chọn nghề không?',
+          type: 'choice',
+          options: ['Chưa từng có', 'Có nhưng không hiệu quả', 'Hữu ích một phần', 'Rất hữu ích'],
+          category: 'interest',
+          riasecGroup: null,
+          phase: 2,
+          order: 34
+        },
+        {
+          questionId: 'q35',
+          text: 'Bạn cảm thấy hào hứng và tò mò mỗi khi tìm hiểu sâu về lĩnh vực chuyên môn mà mình quan tâm? (Attention)',
+          type: 'scale',
+          options: [],
+          category: 'interest',
+          riasecGroup: null,
+          phase: 2,
+          order: 35
+        },
+        {
+          questionId: 'q36',
+          text: 'Bạn tin rằng ngành nghề mình đang hướng tới sẽ giúp đạt được những mục tiêu lâu dài trong cuộc sống? (Relevance)',
+          type: 'scale',
+          options: [],
+          category: 'personality',
+          riasecGroup: null,
+          phase: 2,
+          order: 36
+        },
+        {
+          questionId: 'q37',
+          text: 'Bạn tin mình có đủ khả năng để hoàn thành tốt các chương trình đào tạo chuyên sâu về ngành nghề mà mình yêu thích? (Confidence)',
+          type: 'scale',
+          options: [],
+          category: 'skill',
+          riasecGroup: null,
+          phase: 2,
+          order: 37
+        },
+        {
+          questionId: 'q38',
+          text: 'Bạn cảm thấy tự hào và hạnh phúc khi tưởng tượng mình đang làm việc trong ngành đó sau 5-10 năm nữa? (Satisfaction)',
+          type: 'scale',
+          options: [],
+          category: 'personality',
+          riasecGroup: null,
+          phase: 2,
+          order: 38
+        },
+        {
+          questionId: 'q39',
+          text: 'Khi làm việc, bạn thích theo quy trình cố định, có hướng dẫn rõ ràng hay thích tự do sáng tạo, thay đổi cách làm?',
+          type: 'choice',
+          options: ['Quy trình cố định rõ ràng', 'Thiên về quy trình', 'Thiên về tự do', 'Tự do hoàn toàn'],
+          category: 'personality',
+          riasecGroup: null,
+          phase: 2,
+          order: 39
+        },
+        {
+          questionId: 'q40',
+          text: 'Trong công việc lý tưởng của bạn, bạn muốn tiếp xúc nhiều hơn với điều gì?',
+          type: 'choice',
+          options: ['Con người — giao tiếp và hỗ trợ', 'Dữ liệu và hệ thống', 'Máy móc và thiết bị', 'Ý tưởng và sáng tạo'],
+          category: 'interest',
+          riasecGroup: null,
+          phase: 2,
+          order: 40
+        },
       ]);
-      console.log("Survey questions seeded successfully.");
+      console.log("Survey questions seeded successfully (40 questions: 30 RIASEC + 10 ARCS/Context).");
     }
 
     // Seed default admin + student users if missing

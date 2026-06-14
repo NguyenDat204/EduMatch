@@ -34,24 +34,37 @@ DẠNG TRẢ LỜI:
 };
 
 const CAREER_RECOMMENDATION_PROMPT = `
-TASK: Phân tích hồ sơ học sinh và gợi ý top 5 ngành nghề cá nhân hóa.
+TASK: Phân tích hồ sơ học sinh theo mô hình Holland RIASEC và gợi ý top 5 ngành nghề cá nhân hóa.
 
 INPUT DATA:
-- Survey Answers: {answers}
+- Survey Answers (Phase 1 - RIASEC): {answers}
+- RIASEC Scores: {riasecScores}
+- Holland Code (top 3 groups): {hollandCode}
+- Phase 2 Context (ARCS + External Factors): {phase2Answers}
 - Academic Profile: {academic}
-- Skill Evaluation: {skills}
 - Target Careers DB: {careersDb}
+
+RIASEC GROUPS:
+- R (Realistic): Thực tế, kỹ thuật, tay chân — Kỹ sư, Nông nghiệp, Cơ khí
+- I (Investigative): Phân tích, nghiên cứu, khoa học — Khoa học, CNTT, Y tế
+- A (Artistic): Sáng tạo, nghệ thuật, biểu đạt — Thiết kế, Truyền thông, Nghệ thuật
+- S (Social): Hỗ trợ, giao tiếp, giảng dạy — Giáo dục, Y tế xã hội, Tư vấn
+- E (Enterprising): Lãnh đạo, kinh doanh, thuyết phục — Quản trị, Marketing, Khởi nghiệp
+- C (Conventional): Quy trình, tổ chức, dữ liệu — Kế toán, Hành chính, Tài chính
 
 OUTPUT FORMAT (JSON only, no markdown):
 {
-  "archetype": "string - Hình mẫu nổi bật nhất",
-  "description": "string - Mô tả 2-3 câu chi tiết về điểm mạnh",
+  "archetype": "string - Tên hình mẫu dựa trên Holland Code (vd: Nhà Khoa Học Sáng Tạo - IA)",
+  "hollandCode": "string - 3 chữ cái mã Holland (vd: RIA, SAE, ...)",
+  "description": "string - Mô tả 2-3 câu chi tiết về điểm mạnh dựa trên RIASEC",
   "suitabilityScore": "number (70-99)",
   "analysisReasoning": {
+    "riasecProfile": "mô tả ngắn điểm mạnh của từng nhóm cao điểm",
     "personalityStrengths": ["strength1", "strength2"],
-    "academicAlignment": "explanation",
+    "externalFactors": "nhận xét về ảnh hưởng gia đình/xã hội từ Phase 2",
+    "motivationLevel": "đánh giá động lực nội tại từ ARCS",
     "skillGaps": ["gap1", "gap2"],
-    "marketDemand": "current market context"
+    "marketDemand": "nhận xét thị trường VN hiện tại"
   },
   "careers": [
     {
@@ -62,6 +75,7 @@ OUTPUT FORMAT (JSON only, no markdown):
       "skills": ["skill1", "skill2"],
       "suitability": "number (70-99)",
       "category": "string",
+      "hollandMatch": "string - nhóm RIASEC tương ứng",
       "marketDemand": "number (1-10 - current demand in VN market)",
       "roadmap": [
         {
@@ -75,21 +89,23 @@ OUTPUT FORMAT (JSON only, no markdown):
       ]
     }
   ],
-  "insights": "string - Lời khuyên chiến lược chân thành, truyền cảm hứng",
+  "insights": "string - Lời khuyên chiến lược, có đề cập đến mâu thuẫn nếu Congruence thấp",
   "nextSteps": ["action1", "action2", "action3"]
 }
 
-ANALYSIS FRAMEWORK:
-1. Calculate Technical Score: Survey Q1-Q5, Math grade
-2. Calculate Creative Score: Survey Q6-Q9, Design interest
-3. Calculate Business Score: Survey Q10-Q15, Leadership signals
-4. Cross-reference with {careersDb} for market fit
-5. Rank by combined score: (Tech×0.4 + Creative×0.3 + Business×0.3) × Market Demand
-6. Verify recommendations make logical sense (not random)
+ANALYSIS FRAMEWORK (Holland RIASEC):
+1. Tính tổng điểm 6 nhóm RIASEC từ {riasecScores} (mỗi nhóm 5 câu, thang 1-5 hoặc 0-2)
+2. Xác định Holland Code = 3 nhóm có điểm cao nhất (vd: IAS)
+3. Đọc Phase 2: kiểm tra Congruence — nếu sở thích mâu thuẫn với áp lực gia đình, ghi chú trong insights
+4. Đọc ARCS: Attention (q35), Relevance (q36), Confidence (q37), Satisfaction (q38) để đo lường động lực
+5. Cross-reference Holland Code với {careersDb} và gợi ý nghề phù hợp nhất
+6. Ưu tiên sự phù hợp (Congruence) cao — người có congruence cao thường hạnh phúc và thành công hơn
+7. Nếu Confidence (q37) thấp nhưng sở thích cao: Động viên và chỉ lộ trình phát triển năng lực
 
 CONFIDENCE RULES:
-- If suitabilityScore < 75: Add "Consider also exploring..." in insights
-- If high uncertainty: Suggest taking supplementary assessment
+- Nếu suitabilityScore < 75: Thêm "Hãy cũng cân nhắc..." trong insights
+- Nếu Phase 2 phát hiện áp lực gia đình mâu thuẫn sở thích: Thêm ghi chú tư vấn trong insights
+- Nếu ARCS Confidence thấp: Nhấn mạnh lộ trình phát triển và các bước nhỏ để tăng self-efficacy
 `;
 
 const CHAT_PROMPT_TEMPLATE = `
@@ -203,20 +219,31 @@ const buildPrompt = (template, variables) => {
  */
 const FEW_SHOT_EXAMPLES = {
   CAREER_RECOMMENDATION: `
-EXAMPLE 1:
-Input: Student strong in Math (9.5), Physics (9.0), enjoys problem-solving, score: Tech=85, Creative=30, Business=40
+EXAMPLE 1 — Holland Code: RIE (Kỹ thuật + Nghiên cứu + Kinh doanh):
+Input: R=22, I=20, A=8, S=10, E=18, C=12 → Code: RIE
 Output Excerpt: {
-  "archetype": "Nhà Kỹ Thuật Sáng Tạo",
-  "careers": ["Software Architect", "AI Engineer", "Systems Architect"],
-  "insights": "Bạn có nền tảng logic cực mạnh..."
+  "archetype": "Kỹ Sư Doanh Nhân — RIE",
+  "hollandCode": "RIE",
+  "careers": ["Software Architect", "AI Engineer", "CTO / Technical Co-founder"],
+  "insights": "Bạn kết hợp tư duy kỹ thuật chắc chắn với khả năng phân tích khoa học và bản lĩnh dẫn dắt. Đây là bộ ba hiếm có trong giới startup công nghệ..."
 }
 
-EXAMPLE 2:
-Input: Student strong in Literature (9.2), Art interest, enjoys design, score: Tech=45, Creative=88, Business=50
+EXAMPLE 2 — Holland Code: ASE (Sáng tạo + Xã hội + Kinh doanh):
+Input: R=9, I=11, A=23, S=20, E=17, C=7 → Code: ASE
 Output Excerpt: {
-  "archetype": "Nhà Sáng Tạo Thiết Kế",
-  "careers": ["UX/UI Designer", "Product Designer", "Creative Director"],
-  "insights": "Bạn sở hữu tư duy thẩm mỹ nhạy bén..."
+  "archetype": "Nhà Sáng Tạo Kết Nối — ASE",
+  "hollandCode": "ASE",
+  "careers": ["UX/UI Designer", "Creative Director", "Brand Strategist"],
+  "insights": "Bạn sở hữu tư duy thẩm mỹ nhạy bén cùng khả năng đồng cảm và truyền thông xuất sắc. Các ngành thiết kế lấy con người làm trung tâm (Human-centered Design) rất phù hợp..."
+}
+
+EXAMPLE 3 — Holland Code: SIE (Xã hội + Nghiên cứu + Kinh doanh):
+Input: R=8, I=19, A=12, S=24, E=16, C=9 → Code: SIE
+Output Excerpt: {
+  "archetype": "Nhà Khoa Học Nhân Văn — SIE",
+  "hollandCode": "SIE",
+  "careers": ["Educational Psychologist", "Product Manager (EdTech)", "Medical Researcher"],
+  "insights": "Bạn có trái tim của người muốn giúp đỡ xã hội nhưng được vũ trang bằng tư duy phân tích sâu và tầm nhìn kinh doanh. Ngành giáo dục, y tế hoặc social enterprise là mảnh đất màu mỡ..."
 }
 `
 };

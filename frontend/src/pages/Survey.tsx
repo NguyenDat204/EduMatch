@@ -197,8 +197,8 @@ export const Survey = () => {
   };
 
   const handleComplete = () => {
+    // Navigate tới /result ngay lập tức — AI chạy background ở đó
     // Giữ draft trong sessionStorage cho đến khi Result load xong
-    // Result.tsx sẽ xóa sau khi lưu vào DB
     navigate('/result', { state: { answers } });
   };
 
