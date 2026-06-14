@@ -1,16 +1,18 @@
 import { useState, type ReactNode, useEffect } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
+import { DashboardHeader } from './DashboardHeader';
 import { useAuth } from '../hooks/useAuth';
 import { cn } from '../lib/utils';
 
 interface DashboardLayoutProps {
   children?: ReactNode;
+  noPadding?: boolean;
 }
 
 const SIDEBAR_STORAGE_KEY = 'edumatch_sidebar_collapsed';
 
-export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
+export const DashboardLayout = ({ children, noPadding }: DashboardLayoutProps) => {
   const { user, isAuthenticated, isLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -68,17 +70,26 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Main content — on mobile: full width (sidebar is a drawer overlay)
                        on desktop: shifts based on sidebar collapsed state */}
       <div className={cn(
-        'flex-1 min-w-0 transition-all duration-300 w-full',
-        // Mobile: no margin (sidebar is a drawer, not in flow)
-        // Desktop: margin matches sidebar width
+        'flex-1 min-w-0 transition-all duration-300 w-full flex flex-col h-full',
         'md:ml-0',
         sidebarCollapsed ? 'md:ml-16' : 'md:ml-60'
       )}>
-        <main className="p-4 sm:p-6">
-          <div className="max-w-6xl mx-auto animate-fade-in">
+        {noPadding ? (
+          // Fullscreen pages tự quản lý layout riêng
+          <div className="h-full overflow-hidden animate-fade-in">
             {children ?? <Outlet />}
           </div>
-        </main>
+        ) : (
+          // Tất cả trang — hiện DashboardHeader + scrollable content
+          <>
+            <DashboardHeader />
+            <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
+              <div className="max-w-6xl mx-auto animate-fade-in">
+                {children ?? <Outlet />}
+              </div>
+            </main>
+          </>
+        )}
       </div>
     </div>
   );

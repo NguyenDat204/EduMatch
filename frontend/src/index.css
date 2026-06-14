@@ -60,4 +60,12 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     @apply bg-slate-300 dark:bg-navy-700 rounded-full;
   }
+
+  /* iOS safe area padding — for notch / home indicator */
+  .pt-safe-top    { padding-top:    env(safe-area-inset-top, 0px); }
+  .pb-safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+  /* Dynamic viewport height — correct on mobile browsers with address bar */
+  .h-dvh  { height: 100dvh; }
+  .min-h-dvh { min-height: 100dvh; }
 }

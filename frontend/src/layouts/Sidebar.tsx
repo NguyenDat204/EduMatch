@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Compass, GraduationCap, MessageSquare,
   User, CreditCard, LogOut, ChevronLeft, ChevronRight,
-  Target, Sparkles, BookOpen, Building2, History, Menu, X,
+  Target, Sparkles, BookOpen, Building2, History, X,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -20,6 +20,13 @@ export const Sidebar = ({ onCollapsedChange }: SidebarProps) => {
   });
   // Mobile drawer open state
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Listen for open requests dispatched by DashboardHeader (and Chat header)
+  useEffect(() => {
+    const handler = () => setMobileOpen(true);
+    window.addEventListener('edumatch:open-sidebar', handler);
+    return () => window.removeEventListener('edumatch:open-sidebar', handler);
+  }, []);
 
   const navigate = useNavigate();
   const { logout, user } = useAuth();
@@ -209,15 +216,6 @@ export const Sidebar = ({ onCollapsedChange }: SidebarProps) => {
 
   return (
     <>
-      {/* ── Mobile hamburger button (visible only on small screens) ── */}
-      <button
-        onClick={() => setMobileOpen(true)}
-        className="md:hidden fixed top-3 left-3 z-50 p-2 rounded-lg bg-navy-950 text-slate-400 hover:text-white border border-navy-800 shadow-lg"
-        aria-label="Mở menu"
-      >
-        <Menu size={20} />
-      </button>
-
       {/* ── Mobile overlay backdrop ── */}
       {mobileOpen && (
         <div
