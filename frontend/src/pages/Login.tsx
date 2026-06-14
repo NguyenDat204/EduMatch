@@ -72,17 +72,28 @@ export const Login = () => {
     const initializeGSI = () => {
       if (!window.google?.accounts?.id) return false;
 
-      // Always re-initialize so the callback is fresh and One Tap / FedCM popup
-      // is disabled — prevents the "account overlay" appearing on desktop browsers.
+      // Re-initialize each time the login page mounts.
+      // This avoids Google showing an account chooser/overlay that appears to "override" your UI
+      // after users have logged in previously.
       window.google.accounts.id.initialize({
         client_id: googleClientId,
         callback: handleGoogleCredentialResponse,
         auto_select: false,
         cancel_on_tap_outside: true,
-        use_fedcm_for_prompt: false, // disable FedCM auto-prompt on Chrome
+        // Explicitly prevent auto FedCM/One Tap prompts
+        use_fedcm_for_prompt: false,
       });
-      // Explicitly disable auto-select so no One Tap overlay appears
+
+      // Ensure no auto-select overlay
       window.google.accounts.id.disableAutoSelect();
+
+      // Some GSI builds also support this method; guard it.
+      try {
+        window.google.accounts.id.disableAutoSelect();
+      } catch {
+        // noop
+      }
+
       window._googleInitialized = true;
       return true;
     };
