@@ -74,32 +74,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         'md:ml-0',
         sidebarCollapsed ? 'md:ml-16' : 'md:ml-60'
       )}>
-        {/* Top Header */}
-        <header className="h-14 bg-white dark:bg-navy-950 border-b border-slate-200 dark:border-navy-800 flex items-center px-4 sm:px-6 sticky top-0 z-30 justify-between">
-          <h1 className="text-sm font-semibold text-slate-500 dark:text-slate-400 truncate">EduMatch</h1>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {user.isPro && (
-              <span className="badge bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hidden sm:inline-flex">
-                Pro
-              </span>
-            )}
-            {user.role === 'admin' && (
-              <button
-                onClick={() => navigate('/admin/analytics')}
-                className="text-xs font-semibold bg-primary-600 text-white px-2 sm:px-3 py-1.5 rounded-md hover:bg-primary-700 transition-colors"
-              >
-                Admin
-              </button>
-            )}
-            <img
-              src={user.avatar || `https://i.pravatar.cc/32?u=${user.email}`}
-              alt={user.name}
-              className="w-8 h-8 rounded-full object-cover border-2 border-primary-200 dark:border-primary-800 shrink-0"
-            />
-          </div>
-        </header>
-
-        <main className="p-4 sm:p-6 pt-14 md:pt-6">
+        <main className="p-4 sm:p-6">
           <div className="max-w-6xl mx-auto animate-fade-in">
             {children ?? <Outlet />}
           </div>

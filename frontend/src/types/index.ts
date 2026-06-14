@@ -79,7 +79,10 @@ export interface User {
     archetype?: string;
     description?: string;
     suitabilityScore?: number;
+    insights?: string;
     careers?: any[];
+    answers?: any;
+    updatedAt?: string | Date;
   };
   skillEvaluation?: {
     scores: {

@@ -27,9 +27,13 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error?.response?.status === 401) {
-      try { localStorage.removeItem('edumatch_token'); } catch {}
-      // soft reload so the app can redirect to login
-      if (typeof window !== 'undefined') window.location.reload();
+      const url: string = error?.config?.url || '';
+      // Skip auto-reload for auth endpoints — let the caller handle the error message
+      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/google');
+      if (!isAuthEndpoint) {
+        try { localStorage.removeItem('edumatch_token'); } catch {}
+        if (typeof window !== 'undefined') window.location.reload();
+      }
     }
     return Promise.reject(error);
   }
@@ -58,6 +62,10 @@ export const authService = {
   },
   forgotPassword: async (email: string): Promise<ApiResponse<string>> => {
     const response = await apiClient.post('/auth/forgot-password', { email });
+    return response.data;
+  },
+  changePassword: async (currentPassword: string, newPassword: string): Promise<ApiResponse<string>> => {
+    const response = await apiClient.put('/auth/change-password', { currentPassword, newPassword });
     return response.data;
   },
 };

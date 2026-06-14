@@ -173,11 +173,19 @@ export const Sidebar = ({ onCollapsedChange }: SidebarProps) => {
       <div className="px-2 mt-4 pt-4 border-t border-navy-800 space-y-1">
         {(!isCollapsed || mobileOpen) && user && (
           <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
-            <img
-              src={user.avatar || `https://i.pravatar.cc/32?u=${user.email}`}
-              alt={user.name}
-              className="w-7 h-7 rounded-full object-cover border border-navy-700 shrink-0"
-            />
+            {(() => {
+              const isGoogleAvatar = user.avatar && !user.avatar.includes('pravatar.cc');
+              const initial = user.name?.charAt(0)?.toUpperCase() || '?';
+              const colors = ['from-violet-500 to-indigo-600','from-emerald-500 to-teal-600','from-rose-500 to-pink-600','from-amber-500 to-orange-600','from-sky-500 to-blue-600'];
+              const colorIndex = ((user.name?.charCodeAt(0) || 0) + (user.email?.charCodeAt(0) || 0)) % colors.length;
+              return isGoogleAvatar ? (
+                <img src={user.avatar} alt={user.name} className="w-7 h-7 rounded-full object-cover border border-navy-700 shrink-0" />
+              ) : (
+                <div className={`w-7 h-7 rounded-full bg-gradient-to-br ${colors[colorIndex]} flex items-center justify-center text-white text-[11px] font-bold shrink-0`}>
+                  {initial}
+                </div>
+              );
+            })()}
             <div className="min-w-0">
               <p className="text-xs font-semibold text-white truncate">{user.name}</p>
               <p className="text-[10px] text-slate-500 truncate">{user.email}</p>

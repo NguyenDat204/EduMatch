@@ -327,7 +327,7 @@ export const Result = () => {
           <div className="lg:col-span-2 space-y-4">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">Nghề nghiệp phù hợp nhất</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {result.careers.slice(0, 5).map((career, idx) => {
+              {result.careers.slice(0, 5).map((career) => {
                 const safeCareer = {
                   // Ưu tiên id từ DB, fallback sang title slug để CareerDetails tìm được
                   id: career.id || career._id || `title:${encodeURIComponent(career.title || '')}`,

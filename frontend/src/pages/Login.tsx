@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, GraduationCap, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, ArrowRight, GraduationCap, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 declare global {
@@ -26,6 +26,7 @@ export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const [googleConfigured, setGoogleConfigured] = useState(true);
   const { login, loginViaGoogle, isLoading } = useAuth();
@@ -58,7 +59,7 @@ export const Login = () => {
     } catch (err: any) {
       setErrorRef.current(err.message || 'Đăng nhập Google thất bại.');
     }
-  }, []); // empty deps — identity is stable for the lifetime of the component
+  }, []); // empty deps — identity is stable for the lifetime of the component // empty deps — identity is stable for the lifetime of the component
 
   useEffect(() => {
     if (!googleClientId) {
@@ -115,8 +116,13 @@ export const Login = () => {
     e.preventDefault();
     setError(null);
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      const userData = await login(email, password);
+      // Redirect based on role
+      if (userData && (userData as any).role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       setError(err.message || 'Email hoặc mật khẩu không chính xác.');
     }
@@ -185,13 +191,16 @@ export const Login = () => {
                 <div className="relative">
                   <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all placeholder:text-slate-400"
+                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all placeholder:text-slate-400"
                   />
+                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
                 </div>
               </div>
 

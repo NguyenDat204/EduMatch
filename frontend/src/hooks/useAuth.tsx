@@ -3,7 +3,7 @@ import type { User, AuthState } from '../types';
 import { authService, profileService } from '../services/api';
 
 interface AuthContextType extends AuthState {
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<any>;
   logout: () => void;
   register: (name: string, email: string, password: string, school?: string, role?: string, grade?: string, majorInterest?: string) => Promise<void>;
   loginViaGoogle: (token: string) => Promise<void>;
@@ -78,6 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
         }
       } catch {
+        // Token invalid (expired, wrong secret, etc.) — clear and redirect to login
         localStorage.removeItem('edumatch_token');
         setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
       }
@@ -98,12 +99,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           isAuthenticated: true,
           isLoading: false,
         });
+        // Return user data so callers can redirect based on role
+        return response.data;
       } else {
         throw new Error(response.message || 'Login response invalid');
       }
     } catch (err: any) {
       setState(s => ({ ...s, isLoading: false }));
-      throw new Error(err.response?.data?.message || err.message || 'Login failed');
+      // Normalize axios/BE errors to avoid noisy console stacks in UI.
+      const message = err?.response?.data?.message || err?.message || 'Email hoặc mật khẩu không chính xác.';
+      throw new Error(message);
     }
   };
 
