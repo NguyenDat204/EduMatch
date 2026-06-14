@@ -1,5 +1,32 @@
+const path = require("path");
 const dotenv = require("dotenv");
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, ".env") });
+
+// Confirm email config loaded
+console.log('[ENV] EMAIL_USER:', process.env.EMAIL_USER ? process.env.EMAIL_USER.substring(0, 6) + '***' : 'NOT SET');
+console.log('[ENV] EMAIL_PASS:', process.env.EMAIL_PASS ? '***SET***' : 'NOT SET');
+
+// Test SMTP connection on startup
+setTimeout(async () => {
+  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+      tls: { rejectUnauthorized: false },
+    });
+    transporter.verify((error) => {
+      if (error) {
+        console.error('[EMAIL] SMTP connection FAILED:', error.message);
+        console.error('[EMAIL] Code:', error.code, '| Response:', error.response);
+      } else {
+        console.log('[EMAIL] SMTP connection OK — Gmail ready to send');
+      }
+    });
+  }
+}, 2000);
 
 const express = require("express");
 const cors = require("cors");

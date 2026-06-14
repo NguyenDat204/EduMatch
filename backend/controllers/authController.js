@@ -6,14 +6,17 @@ const University = require("../models/University");
 
 // ==================== EMAIL SERVICE ====================
 const createTransporter = () => {
-  // Support Gmail (default) or any SMTP config from env
+  // Gmail with App Password — use direct SMTP (port 465 SSL) for reliability
   if (process.env.EMAIL_SERVICE === 'gmail' || !process.env.EMAIL_HOST) {
     return nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
+      tls: { rejectUnauthorized: false },
     });
   }
   return nodemailer.createTransport({
@@ -27,17 +30,34 @@ const createTransporter = () => {
   });
 };
 
-const sendOTPEmail = async (toEmail, otp, userName = '') => {
+const sendOTPEmail = async (toEmail, otp, userName = '', type = 'reset') => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.warn('[EMAIL] EMAIL_USER or EMAIL_PASS not configured. OTP will only be logged.');
     return false;
   }
+
+  const isVerify = type === 'verify';
+  const subject  = isVerify
+    ? '[EduMatch] Xác thực email đăng ký tài khoản'
+    : '[EduMatch] Mã xác thực khôi phục mật khẩu';
+  const title    = isVerify ? 'Xác thực email của bạn' : 'Khôi phục mật khẩu';
+  const subtitle = isVerify
+    ? 'Hoàn tất đăng ký tài khoản EduMatch'
+    : 'Đặt lại mật khẩu tài khoản EduMatch';
+  const bodyText = isVerify
+    ? 'Bạn vừa đăng ký tài khoản EduMatch. Vui lòng sử dụng mã OTP dưới đây để xác thực địa chỉ email của bạn:'
+    : 'Bạn đã yêu cầu khôi phục mật khẩu cho tài khoản EduMatch. Vui lòng sử dụng mã OTP dưới đây để đặt lại mật khẩu:';
+  const warningText = isVerify
+    ? '⚠️ Mã OTP này <strong>sẽ hết hạn sau 10 phút</strong>. Không chia sẻ mã này với bất kỳ ai.'
+    : '⚠️ Mã OTP này <strong>sẽ hết hạn sau 10 phút</strong>. Không chia sẻ mã này với bất kỳ ai.';
+
   try {
     const transporter = createTransporter();
-    await transporter.sendMail({
+    console.log('[EMAIL] Attempting to send to:', toEmail, '| from:', process.env.EMAIL_USER);
+    const info = await transporter.sendMail({
       from: `"EduMatch 🎓" <${process.env.EMAIL_USER}>`,
       to: toEmail,
-      subject: '[EduMatch] Mã xác thực khôi phục mật khẩu',
+      subject,
       html: `
         <!DOCTYPE html>
         <html>
@@ -46,14 +66,14 @@ const sendOTPEmail = async (toEmail, otp, userName = '') => {
           <style>
             body { font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; margin: 0; padding: 0; }
             .container { max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-            .header { background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 36px 32px; text-align: center; }
+            .header { background: linear-gradient(135deg, #2563eb, #1a4fd6); padding: 36px 32px; text-align: center; }
             .header h1 { color: white; margin: 0; font-size: 24px; font-weight: 700; }
             .header p { color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px; }
             .body { padding: 40px 32px; }
             .greeting { color: #1e293b; font-size: 16px; font-weight: 600; margin-bottom: 16px; }
             .text { color: #64748b; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
-            .otp-box { background: #f1f5f9; border: 2px dashed #6366f1; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0; }
-            .otp-code { font-size: 40px; font-weight: 900; color: #6366f1; letter-spacing: 8px; font-family: monospace; }
+            .otp-box { background: #eff6ff; border: 2px dashed #2563eb; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0; }
+            .otp-code { font-size: 40px; font-weight: 900; color: #2563eb; letter-spacing: 8px; font-family: monospace; }
             .otp-label { color: #94a3b8; font-size: 12px; margin-top: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
             .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 0 8px 8px 0; color: #92400e; font-size: 13px; margin: 20px 0; }
             .footer { background: #f8fafc; padding: 20px 32px; text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; }
@@ -63,19 +83,17 @@ const sendOTPEmail = async (toEmail, otp, userName = '') => {
           <div class="container">
             <div class="header">
               <h1>🎓 EduMatch</h1>
-              <p>Nền tảng định hướng nghề nghiệp AI</p>
+              <p>${subtitle}</p>
             </div>
             <div class="body">
               <p class="greeting">Xin chào${userName ? ` ${userName}` : ''}!</p>
-              <p class="text">Bạn đã yêu cầu khôi phục mật khẩu cho tài khoản EduMatch. Vui lòng sử dụng mã OTP dưới đây để đặt lại mật khẩu:</p>
+              <p class="text">${bodyText}</p>
               <div class="otp-box">
                 <div class="otp-code">${otp}</div>
                 <div class="otp-label">Mã xác thực (OTP)</div>
               </div>
-              <div class="warning">
-                ⚠️ Mã OTP này <strong>sẽ hết hạn sau 10 phút</strong>. Không chia sẻ mã này với bất kỳ ai.
-              </div>
-              <p class="text">Nếu bạn không yêu cầu khôi phục mật khẩu, vui lòng bỏ qua email này. Tài khoản của bạn vẫn an toàn.</p>
+              <div class="warning">${warningText}</div>
+              <p class="text">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email. Tài khoản của bạn vẫn an toàn.</p>
             </div>
             <div class="footer">
               <p>© ${new Date().getFullYear()} EduMatch · Tất cả quyền được bảo lưu</p>
@@ -86,10 +104,12 @@ const sendOTPEmail = async (toEmail, otp, userName = '') => {
         </html>
       `,
     });
-    console.log(`[EMAIL] OTP sent successfully to ${toEmail}`);
+    console.log(`[EMAIL] ${type} OTP sent successfully to ${toEmail} | messageId:`, info.messageId);
     return true;
   } catch (err) {
     console.error('[EMAIL] Failed to send OTP email:', err.message);
+    console.error('[EMAIL] Full error:', JSON.stringify({ code: err.code, command: err.command, response: err.response, responseCode: err.responseCode }));
+    console.error('[EMAIL] EMAIL_USER configured:', !!process.env.EMAIL_USER, '→', process.env.EMAIL_USER?.substring(0, 8) + '***');
     return false;
   }
 };
@@ -105,7 +125,108 @@ const generateToken = (id) => {
   });
 };
 
-// @desc    Register a new user
+// @desc    Send email verification OTP (before completing registration)
+// @route   POST /api/auth/send-verify-otp
+// @access  Public
+const sendVerifyOTP = async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email là bắt buộc' });
+
+    // Check if already registered
+    const existing = await User.findOne({ email });
+    if (existing && existing.isEmailVerified) {
+      return res.status(400).json({ message: 'Email này đã được đăng ký. Vui lòng đăng nhập.' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store OTP temporarily — reuse resetPassword fields for simplicity
+    // (or on the existing unverified user if exists)
+    if (existing) {
+      existing.resetPasswordOTP = otp;
+      existing.resetPasswordOTPExpires = Date.now() + 10 * 60 * 1000;
+      await existing.save();
+    } else {
+      // Store in a temporary map in memory — but for persistence across restarts
+      // we'll create a temp unverified user or use a separate in-memory store
+      // Simplest reliable approach: store on a temp user doc
+      const tempUser = await User.findOneAndUpdate(
+        { email, isEmailVerified: false },
+        {
+          $set: {
+            resetPasswordOTP: otp,
+            resetPasswordOTPExpires: Date.now() + 10 * 60 * 1000,
+          }
+        },
+        { upsert: false, new: true }
+      );
+      if (!tempUser) {
+        // No user yet — just keep OTP in response (user will submit with registration)
+        // Use a signed temporary token approach: store otp in a simple in-memory store
+        if (!global._emailOTPStore) global._emailOTPStore = {};
+        global._emailOTPStore[email] = {
+          otp,
+          expires: Date.now() + 10 * 60 * 1000,
+          name: name || '',
+        };
+      }
+    }
+
+    console.log(`[VERIFY OTP] ${email} → ${otp}`);
+    const emailSent = await sendOTPEmail(email, otp, name || '', 'verify');
+
+    res.json({
+      success: true,
+      message: emailSent
+        ? 'Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.'
+        : `Mã OTP: ${otp} (email chưa cấu hình)`,
+      ...(process.env.NODE_ENV !== 'production' && { devOtp: otp }),
+    });
+  } catch (error) {
+    console.error('Send Verify OTP Error:', error);
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
+// @desc    Verify email OTP (confirm email before/after registration)
+// @route   POST /api/auth/verify-email-otp
+// @access  Public
+const verifyEmailOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ message: 'Email và OTP là bắt buộc' });
+
+    // Check DB first (existing user flow)
+    const user = await User.findOne({
+      email,
+      resetPasswordOTP: otp,
+      resetPasswordOTPExpires: { $gt: Date.now() },
+    });
+
+    if (user) {
+      user.resetPasswordOTP = undefined;
+      user.resetPasswordOTPExpires = undefined;
+      await user.save();
+      return res.json({ success: true, message: 'Xác thực email thành công!' });
+    }
+
+    // Check in-memory store (new user not yet created)
+    const stored = global._emailOTPStore?.[email];
+    if (stored && stored.otp === otp && stored.expires > Date.now()) {
+      // Mark as verified — store a verified flag so register can proceed
+      global._emailOTPStore[email].verified = true;
+      return res.json({ success: true, message: 'Xác thực email thành công!' });
+    }
+
+    return res.status(400).json({ message: 'Mã OTP không chính xác hoặc đã hết hạn.' });
+  } catch (error) {
+    console.error('Verify Email OTP Error:', error);
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
+  }
+};
+
+
 // @route   POST /api/auth/register
 // @access  Public
 const registerUser = async (req, res) => {
@@ -116,23 +237,29 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: "Please provide all required fields" });
     }
 
-    const userExists = await User.findOne({ email });
+    // Check email was verified via OTP
+    const verified = global._emailOTPStore?.[email]?.verified;
+    if (!verified) {
+      return res.status(400).json({ message: "Email chưa được xác thực. Vui lòng xác thực OTP trước khi đăng ký." });
+    }
 
+    const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Determine role (first user becomes admin for testing simplicity, or default to provided role / student)
+    // Clean up OTP store
+    if (global._emailOTPStore?.[email]) delete global._emailOTPStore[email];
+
     const count = await User.countDocuments();
     let finalRole = req.body.role || "student";
-    if (count === 0) {
-      finalRole = "admin";
-    }
+    if (count === 0) finalRole = "admin";
 
     const user = await User.create({
       name,
       email,
       password,
+      isEmailVerified: true,
       role: finalRole,
       academicInfo: {
         school: school || "",
@@ -321,7 +448,7 @@ const forgotPassword = async (req, res) => {
     console.log(`==============================================\n`);
 
     // Attempt to send email — fall back gracefully if email not configured
-    const emailSent = await sendOTPEmail(email, otp, user.name);
+    const emailSent = await sendOTPEmail(email, otp, user.name, 'reset');
 
     const message = emailSent
       ? 'Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư (bao gồm thư mục Spam).'
@@ -419,4 +546,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   changePassword,
+  sendVerifyOTP,
+  verifyEmailOTP,
 };

@@ -7,9 +7,13 @@ const {
   forgotPassword,
   resetPassword,
   changePassword,
+  sendVerifyOTP,
+  verifyEmailOTP,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 
+router.post("/send-verify-otp", sendVerifyOTP);
+router.post("/verify-email-otp", verifyEmailOTP);
 router.post("/register", registerUser);
 router.post("/login", authUser);
 router.post("/google", googleLogin);
