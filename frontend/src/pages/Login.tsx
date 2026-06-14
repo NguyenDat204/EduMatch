@@ -69,7 +69,6 @@ export const Login = () => {
 
     const initGoogle = () => {
       if (!window.google?.accounts?.id) return false;
-
       window.google.accounts.id.initialize({
         client_id: googleClientId,
         callback: handleGoogleCredentialResponse,
@@ -78,7 +77,6 @@ export const Login = () => {
       });
       window._googleInitialized = true;
       setGoogleReady(true);
-
       if (googleBtnRef.current) {
         (window.google.accounts.id as any).renderButton(googleBtnRef.current, {
           theme: 'outline',
@@ -91,28 +89,28 @@ export const Login = () => {
       return true;
     };
 
-    // Thử init ngay nếu script đã load sẵn
+    // Nếu đã load rồi thì init luôn
     if (initGoogle()) return;
 
-    // Lắng nghe cả event và polling để đảm bảo catch được trên mọi trình duyệt/thiết bị
-    const onReady = () => { initGoogle(); };
-    window.addEventListener('google-gsi-ready', onReady);
-
-    // Polling dự phòng với timeout dài hơn cho mobile
-    const interval = window.setInterval(() => {
-      if (initGoogle()) window.clearInterval(interval);
-    }, 300);
-
-    // Dừng sau 15 giây nếu vẫn không load được
-    const timeout = window.setTimeout(() => {
-      window.clearInterval(interval);
-    }, 15000);
-
-    return () => {
-      window.clearInterval(interval);
-      window.clearTimeout(timeout);
-      window.removeEventListener('google-gsi-ready', onReady);
-    };
+    // Tạo script tag động với onload callback — đảm bảo chạy đúng trên mọi thiết bị
+    const existingScript = document.getElementById('google-gsi-script');
+    if (!existingScript) {
+      const script = document.createElement('script');
+      script.id = 'google-gsi-script';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => { initGoogle(); };
+      script.onerror = () => { console.warn('[Google] GSI script failed to load'); };
+      document.head.appendChild(script);
+    } else {
+      // Script đã có nhưng chưa load xong — polling
+      const interval = window.setInterval(() => {
+        if (initGoogle()) window.clearInterval(interval);
+      }, 300);
+      const timeout = window.setTimeout(() => window.clearInterval(interval), 15000);
+      return () => { window.clearInterval(interval); window.clearTimeout(timeout); };
+    }
   }, [googleClientId, handleGoogleCredentialResponse]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
