@@ -2,6 +2,14 @@
 // Domain Models
 // ─────────────────────────────────────────────────────────────
 
+export interface CareerRoadmapStep {
+  phase?: string;
+  duration?: string;
+  title?: string;
+  description?: string;
+  skillsToAcquire?: string[];
+}
+
 export interface Career {
   id: string;
   _id?: string;
@@ -12,6 +20,7 @@ export interface Career {
   skills: string[];
   suitability: number;
   category: string;
+  roadmap?: CareerRoadmapStep[];
 }
 
 export interface University {
