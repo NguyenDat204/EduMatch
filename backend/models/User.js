@@ -44,7 +44,6 @@ const UserSchema = new mongoose.Schema(
     },
     resetPasswordOTP: { type: String },
     resetPasswordOTPExpires: { type: Date },
-    isEmailVerified: { type: Boolean, default: false },
     academicInfo: {
       school: { type: String, default: "" },
       grade: { type: String, default: "12" },

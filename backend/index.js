@@ -1,6 +1,5 @@
-const path = require("path");
 const dotenv = require("dotenv");
-dotenv.config({ path: path.resolve(__dirname, ".env") });
+dotenv.config();
 
 const express = require("express");
 const cors = require("cors");
@@ -33,9 +32,6 @@ connectDB().then(() => {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Trust Render/cloud reverse proxy (fixes express-rate-limit X-Forwarded-For error)
-app.set('trust proxy', 1);
-
 // Security middleware
 app.use(helmet());
 app.use(cors());
@@ -49,11 +45,12 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-// Rate limiters for sensitive endpoints — now managed per-route in authRoutes.js
+// Rate limiters for sensitive endpoints
 const recommendationsLimiter = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false }); // 10 requests/min
+const authLimiter = rateLimit({ windowMs: 60 * 1000, max: 6, standardHeaders: true, legacyHeaders: false }); // 6 requests/min
 
 // Register API Routes
-app.use("/api/auth", authRoutes); // Rate limiting handled per-route inside authRoutes.js
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/careers", careerRoutes);
 app.use("/api/universities", universityRoutes);

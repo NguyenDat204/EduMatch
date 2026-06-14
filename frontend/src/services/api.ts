@@ -29,14 +29,7 @@ apiClient.interceptors.response.use(
     if (error?.response?.status === 401) {
       const url: string = error?.config?.url || '';
       // Skip auto-reload for auth endpoints — let the caller handle the error message
-      const isAuthEndpoint =
-        url.includes('/auth/login') ||
-        url.includes('/auth/register') ||
-        url.includes('/auth/google') ||
-        url.includes('/auth/send-verify-otp') ||
-        url.includes('/auth/verify-email-otp') ||
-        url.includes('/auth/forgot-password') ||
-        url.includes('/auth/reset-password');
+      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/google');
       if (!isAuthEndpoint) {
         try { localStorage.removeItem('edumatch_token'); } catch {}
         if (typeof window !== 'undefined') window.location.reload();
@@ -69,14 +62,6 @@ export const authService = {
   },
   forgotPassword: async (email: string): Promise<ApiResponse<string>> => {
     const response = await apiClient.post('/auth/forgot-password', { email });
-    return response.data;
-  },
-  sendVerifyOTP: async (email: string, name: string): Promise<ApiResponse<string>> => {
-    const response = await apiClient.post('/auth/send-verify-otp', { email, name });
-    return response.data;
-  },
-  verifyEmailOTP: async (email: string, otp: string): Promise<ApiResponse<string>> => {
-    const response = await apiClient.post('/auth/verify-email-otp', { email, otp });
     return response.data;
   },
   changePassword: async (currentPassword: string, newPassword: string): Promise<ApiResponse<string>> => {
