@@ -79,6 +79,10 @@ export const authService = {
     const response = await apiClient.post('/auth/verify-email-otp', { email, otp });
     return response.data;
   },
+  resetPassword: async (email: string, otp: string, newPassword: string): Promise<ApiResponse<string>> => {
+    const response = await apiClient.post('/auth/reset-password', { email, otp, newPassword });
+    return response.data;
+  },
   changePassword: async (currentPassword: string, newPassword: string): Promise<ApiResponse<string>> => {
     const response = await apiClient.put('/auth/change-password', { currentPassword, newPassword });
     return response.data;

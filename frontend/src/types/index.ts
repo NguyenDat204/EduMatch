@@ -113,6 +113,7 @@ export interface ApiResponse<T> {
   data: T;
   message: string;
   success: boolean;
+  devOtp?: string;
 }
 
 export interface AuthState {

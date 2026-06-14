@@ -3,12 +3,24 @@ const { OAuth2Client } = require('google-auth-library');
 const nodemailer = require("nodemailer");
 const { Resend } = require("resend");
 const User = require("../models/User");
+const EmailOTP = require("../models/EmailOTP");
 const University = require("../models/University");
+
+// ==================== CONSTANTS ====================
+const OTP_EXPIRY_MS = 10 * 60 * 1000;
+const VERIFY_WINDOW_MS = 30 * 60 * 1000;
 
 // ==================== EMAIL SERVICE ====================
 // Priority:
 //  1. Resend HTTP API (RESEND_API_KEY)        — production on Render (no SMTP ports needed)
 //  2. Nodemailer SMTP (EMAIL_USER+EMAIL_PASS) — local dev only
+
+const isEmailConfigured = () =>
+  !!(process.env.RESEND_API_KEY || (process.env.EMAIL_USER && process.env.EMAIL_PASS));
+
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+const getExpiresAt = () => new Date(Date.now() + OTP_EXPIRY_MS);
 
 const buildEmailHtml = (otp, userName, type) => {
   const isVerify = type === 'verify';
@@ -39,14 +51,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;margin:0;padding
   <p class="text">${bodyText}</p>
   <div class="otp-box">
     <div class="otp-code">${otp}</div>
-    <div class="otp-label">Ma xac thuc (OTP)</div>
+    <div class="otp-label">Mã xác thực (OTP)</div>
   </div>
-  <div class="warning">Ma OTP nay <strong>se het han sau 10 phut</strong>. Khong chia se ma nay voi bat ky ai.</div>
-  <p class="text">Neu ban khong thuc hien yeu cau nay, vui long bo qua email. Tai khoan cua ban van an toan.</p>
+  <div class="warning">Mã OTP này <strong>sẽ hết hạn sau 10 phút</strong>. Không chia sẻ mã này với bất kỳ ai.</div>
+  <p class="text">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email. Tài khoản của bạn vẫn an toàn.</p>
 </div>
 <div class="footer">
-  <p>&copy; ${new Date().getFullYear()} EduMatch &middot; Tat ca quyen duoc bao luu</p>
-  <p style="margin-top:4px">Email nay duoc gui tu dong, vui long khong tra loi.</p>
+  <p>&copy; ${new Date().getFullYear()} EduMatch &middot; Tất cả quyền được bảo lưu</p>
+  <p style="margin-top:4px">Email này được gửi tự động, vui lòng không trả lời.</p>
 </div>
 </div></body></html>`;
 };
@@ -54,55 +66,93 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f8fafc;margin:0;padding
 const sendOTPEmail = async (toEmail, otp, userName = '', type = 'reset') => {
   const isVerify = type === 'verify';
   const subject  = isVerify
-    ? '[EduMatch] Xac thuc email dang ky tai khoan'
-    : '[EduMatch] Ma xac thuc khoi phuc mat khau';
+    ? '[EduMatch] Xác thực email đăng ký tài khoản'
+    : '[EduMatch] Mã xác thực khôi phục mật khẩu';
   const htmlBody = buildEmailHtml(otp, userName, type);
 
-  // ── Path 1: Resend HTTP API (production — Render) ────────────────────────
   if (process.env.RESEND_API_KEY) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
       const from = process.env.RESEND_FROM || 'EduMatch <onboarding@resend.dev>';
-      await resend.emails.send({ from, to: toEmail, subject, html: htmlBody });
+      const { error } = await resend.emails.send({ from, to: toEmail, subject, html: htmlBody });
+      if (error) {
+        console.error('[EMAIL] Resend API error:', error.message);
+        return false;
+      }
       return true;
     } catch (err) {
       console.error('[EMAIL] Resend API failed:', err.message);
+      return false;
     }
   }
 
-  // ── Path 2: Nodemailer SMTP (local dev only) ──────────────────────────────
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.error('[EMAIL] No email provider configured.');
     return false;
   }
+
   try {
-    const port = parseInt(process.env.EMAIL_SMTP_PORT || '587');
+    const port = parseInt(process.env.EMAIL_SMTP_PORT || '587', 10);
     const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
     const transporter = nodemailer.createTransport({
       host,
       port,
       secure: port === 465,
       auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-      tls: { rejectUnauthorized: false },
+      tls: { rejectUnauthorized: process.env.NODE_ENV === 'production' },
       connectionTimeout: 15000,
       greetingTimeout: 15000,
       socketTimeout: 20000,
     });
-    // Allow overriding the From address (e.g. edumatchvn@gmail.com via Brevo sender verification)
     const fromAddress = process.env.EMAIL_FROM
       ? `"EduMatch" <${process.env.EMAIL_FROM}>`
       : `"EduMatch" <${process.env.EMAIL_USER}>`;
-    await transporter.sendMail({
-      from: fromAddress,
-      to: toEmail,
-      subject,
-      html: htmlBody,
-    });
+    await transporter.sendMail({ from: fromAddress, to: toEmail, subject, html: htmlBody });
     return true;
   } catch (err) {
     console.error('[EMAIL] SMTP failed:', err.code, err.message);
     return false;
   }
+};
+
+const respondOTPSent = (res, emailSent, otp) => {
+  if (emailSent) {
+    return res.json({
+      success: true,
+      message: 'Mã OTP đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư (bao gồm thư mục Spam).',
+      ...(process.env.NODE_ENV !== 'production' && { devOtp: otp }),
+    });
+  }
+
+  if (!isEmailConfigured()) {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(503).json({
+        message: 'Hệ thống email chưa được cấu hình. Vui lòng liên hệ quản trị viên.',
+      });
+    }
+    return res.json({
+      success: true,
+      message: 'Chế độ dev: email chưa cấu hình. Sử dụng mã OTP bên dưới.',
+      devOtp: otp,
+    });
+  }
+
+  return res.status(500).json({
+    message: 'Không thể gửi email. Vui lòng thử lại sau.',
+  });
+};
+
+const upsertOTP = async (email, type, otp, metadata = {}) => {
+  return EmailOTP.findOneAndUpdate(
+    { email, type },
+    {
+      otp,
+      expiresAt: getExpiresAt(),
+      verifiedAt: undefined,
+      metadata,
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
 };
 
 // ==================== AUTH HELPERS ====================
@@ -118,37 +168,22 @@ const generateToken = (id) => {
 const sendVerifyOTP = async (req, res) => {
   try {
     const { email, name } = req.body;
-    if (!email) return res.status(400).json({ message: 'Email la bat buoc' });
+    if (!email) return res.status(400).json({ message: 'Email là bắt buộc' });
 
-    const existing = await User.findOne({ email });
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing && existing.isEmailVerified) {
-      return res.status(400).json({ message: 'Email nay da duoc dang ky. Vui long dang nhap.' });
+      return res.status(400).json({ message: 'Email này đã được đăng ký. Vui lòng đăng nhập.' });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = Date.now() + 10 * 60 * 1000;
+    const otp = generateOTP();
+    await upsertOTP(normalizedEmail, 'verify', otp, { name: name || '' });
 
-    if (!global._emailOTPStore) global._emailOTPStore = {};
-    global._emailOTPStore[email] = { otp, expires, name: name || '', verified: false };
-
-    if (existing && !existing.isEmailVerified) {
-      existing.resetPasswordOTP = otp;
-      existing.resetPasswordOTPExpires = expires;
-      await existing.save();
-    }
-
-    const emailSent = await sendOTPEmail(email, otp, name || '', 'verify');
-
-    res.json({
-      success: true,
-      message: emailSent
-        ? 'Ma OTP da duoc gui den email cua ban. Vui long kiem tra hop thu.'
-        : `Ma OTP: ${otp} (email chua cau hinh)`,
-      ...(process.env.NODE_ENV !== 'production' && { devOtp: otp }),
-    });
+    const emailSent = await sendOTPEmail(normalizedEmail, otp, name || '', 'verify');
+    return respondOTPSent(res, emailSent, otp);
   } catch (error) {
     console.error('Send Verify OTP Error:', error);
-    res.status(500).json({ message: 'Loi may chu', error: error.message });
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
 };
 
@@ -156,38 +191,27 @@ const sendVerifyOTP = async (req, res) => {
 const verifyEmailOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
-    if (!email || !otp) return res.status(400).json({ message: 'Email va OTP la bat buoc' });
+    if (!email || !otp) return res.status(400).json({ message: 'Email và OTP là bắt buộc' });
 
-    if (!global._emailOTPStore) global._emailOTPStore = {};
-    const stored = global._emailOTPStore[email];
-    if (stored && stored.otp === otp && stored.expires > Date.now()) {
-      global._emailOTPStore[email].verified = true;
-      return res.json({ success: true, message: 'Xac thuc email thanh cong!' });
-    }
-
-    const user = await User.findOne({
-      email,
-      resetPasswordOTP: otp,
-      resetPasswordOTPExpires: { $gt: Date.now() },
+    const normalizedEmail = email.toLowerCase().trim();
+    const record = await EmailOTP.findOne({
+      email: normalizedEmail,
+      type: 'verify',
+      otp,
+      expiresAt: { $gt: new Date() },
     });
 
-    if (user) {
-      global._emailOTPStore[email] = {
-        otp,
-        expires: user.resetPasswordOTPExpires,
-        name: user.name || '',
-        verified: true,
-      };
-      user.resetPasswordOTP = undefined;
-      user.resetPasswordOTPExpires = undefined;
-      await user.save();
-      return res.json({ success: true, message: 'Xac thuc email thanh cong!' });
+    if (!record) {
+      return res.status(400).json({ message: 'Mã OTP không chính xác hoặc đã hết hạn.' });
     }
 
-    return res.status(400).json({ message: 'Ma OTP khong chinh xac hoac da het han.' });
+    record.verifiedAt = new Date();
+    await record.save();
+
+    res.json({ success: true, message: 'Xác thực email thành công!' });
   } catch (error) {
     console.error('Verify Email OTP Error:', error);
-    res.status(500).json({ message: 'Loi may chu', error: error.message });
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
 };
 
@@ -200,23 +224,29 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Please provide all required fields' });
     }
 
-    const verified = global._emailOTPStore?.[email]?.verified;
-    if (!verified) {
-      return res.status(400).json({ message: 'Email chua duoc xac thuc. Vui long xac thuc OTP truoc khi dang ky.' });
+    const normalizedEmail = email.toLowerCase().trim();
+    const verifyRecord = await EmailOTP.findOne({
+      email: normalizedEmail,
+      type: 'verify',
+      verifiedAt: { $exists: true, $gt: new Date(Date.now() - VERIFY_WINDOW_MS) },
+    });
+
+    if (!verifyRecord) {
+      return res.status(400).json({
+        message: 'Email chưa được xác thực. Vui lòng xác thực OTP trước khi đăng ký.',
+      });
     }
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ email: normalizedEmail });
     if (userExists && userExists.isEmailVerified) {
       return res.status(400).json({ message: 'User already exists' });
     }
-
-    if (global._emailOTPStore?.[email]) delete global._emailOTPStore[email];
 
     const count = await User.countDocuments();
     let finalRole = req.body.role || 'student';
     if (count === 0) finalRole = 'admin';
 
-    let user = await User.findOne({ email, isEmailVerified: false });
+    let user = await User.findOne({ email: normalizedEmail, isEmailVerified: false });
     if (user) {
       user.name = name;
       user.password = password;
@@ -228,12 +258,16 @@ const registerUser = async (req, res) => {
       await user.save();
     } else {
       user = await User.create({
-        name, email, password,
+        name,
+        email: normalizedEmail,
+        password,
         isEmailVerified: true,
         role: finalRole,
         academicInfo: { school: school || '', grade: grade || '12', majorInterest: majorInterest || '' },
       });
     }
+
+    await EmailOTP.deleteOne({ email: normalizedEmail, type: 'verify' });
 
     if (user) {
       if (finalRole === 'university') {
@@ -273,22 +307,30 @@ const registerUser = async (req, res) => {
 const authUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    if (user && (await user.matchPassword(password))) {
-      res.json({
-        success: true,
-        data: {
-          _id: user._id, name: user.name, email: user.email, role: user.role,
-          avatar: user.avatar, isPro: user.isPro, subscription: user.subscription,
-          academicInfo: user.academicInfo, favorites: user.favorites,
-          personalityTest: user.personalityTest, skillEvaluation: user.skillEvaluation,
-          universityId: user.universityId,
-        },
-        token: generateToken(user._id),
-      });
-    } else {
-      res.status(401).json({ message: 'Invalid email or password' });
+    const normalizedEmail = email?.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user || !(await user.matchPassword(password))) {
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
+
+    if (!user.isEmailVerified) {
+      return res.status(403).json({
+        message: 'Email chưa được xác thực. Vui lòng hoàn tất đăng ký hoặc liên hệ hỗ trợ.',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        _id: user._id, name: user.name, email: user.email, role: user.role,
+        avatar: user.avatar, isPro: user.isPro, subscription: user.subscription,
+        academicInfo: user.academicInfo, favorites: user.favorites,
+        personalityTest: user.personalityTest, skillEvaluation: user.skillEvaluation,
+        universityId: user.universityId,
+      },
+      token: generateToken(user._id),
+    });
   } catch (error) {
     console.error('Login Error:', error);
     res.status(500).json({ message: 'Server error during login', error: error.message });
@@ -315,14 +357,21 @@ const googleLogin = async (req, res) => {
 
     if (!email) return res.status(400).json({ message: 'Google email is required' });
 
-    let user = await User.findOne({ email });
+    const normalizedEmail = email.toLowerCase().trim();
+    let user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       user = await User.create({
-        name: name || email.split('@')[0], email,
+        name: name || normalizedEmail.split('@')[0],
+        email: normalizedEmail,
         password: Math.random().toString(36).slice(-10),
         role: 'student',
-        avatar: avatar || `https://i.pravatar.cc/150?u=${email}`,
+        isEmailVerified: true,
+        avatar: avatar || `https://i.pravatar.cc/150?u=${normalizedEmail}`,
       });
+    } else if (!user.isEmailVerified) {
+      user.isEmailVerified = true;
+      if (avatar && !user.avatar) user.avatar = avatar;
+      await user.save();
     }
 
     res.json({
@@ -346,26 +395,24 @@ const googleLogin = async (req, res) => {
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ message: 'Khong tim thay tai khoan voi email nay' });
+    if (!email) return res.status(400).json({ message: 'Email là bắt buộc' });
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    user.resetPasswordOTP = otp;
-    user.resetPasswordOTPExpires = Date.now() + 10 * 60 * 1000;
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy tài khoản với email này' });
+
+    const otp = generateOTP();
+    await upsertOTP(normalizedEmail, 'reset', otp, { name: user.name || '' });
+
+    user.resetPasswordOTP = undefined;
+    user.resetPasswordOTPExpires = undefined;
     await user.save();
 
-    const emailSent = await sendOTPEmail(email, otp, user.name, 'reset');
-
-    res.json({
-      success: true,
-      message: emailSent
-        ? 'Ma OTP da duoc gui den email cua ban. Vui long kiem tra hop thu (bao gom thu muc Spam).'
-        : `Ma OTP cua ban la: ${otp} (Email chua duoc cau hinh tren server)`,
-      ...(process.env.NODE_ENV !== 'production' && { devOtp: otp }),
-    });
+    const emailSent = await sendOTPEmail(normalizedEmail, otp, user.name, 'reset');
+    return respondOTPSent(res, emailSent, otp);
   } catch (error) {
     console.error('Forgot Password Error:', error);
-    res.status(500).json({ message: 'Loi may chu trong qua trinh khoi phuc mat khau', error: error.message });
+    res.status(500).json({ message: 'Lỗi máy chủ trong quá trình khôi phục mật khẩu', error: error.message });
   }
 };
 
@@ -374,26 +421,45 @@ const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
     if (!email || !otp || !newPassword) {
-      return res.status(400).json({ message: 'Vui long dien day du cac thong tin yeu cau' });
+      return res.status(400).json({ message: 'Vui lòng điền đầy đủ các thông tin yêu cầu' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
     }
 
-    const user = await User.findOne({
-      email,
-      resetPasswordOTP: otp,
-      resetPasswordOTPExpires: { $gt: Date.now() },
+    const normalizedEmail = email.toLowerCase().trim();
+    let record = await EmailOTP.findOne({
+      email: normalizedEmail,
+      type: 'reset',
+      otp,
+      expiresAt: { $gt: new Date() },
     });
 
-    if (!user) return res.status(400).json({ message: 'Ma OTP khong chinh xac hoac da het han' });
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy tài khoản' });
+
+    // Legacy fallback: OTP stored on User before EmailOTP migration
+    if (!record && user.resetPasswordOTP === otp) {
+      const legacyExpires = user.resetPasswordOTPExpires;
+      const expiresMs = legacyExpires instanceof Date ? legacyExpires.getTime() : Number(legacyExpires);
+      if (!expiresMs || expiresMs <= Date.now()) {
+        return res.status(400).json({ message: 'Mã OTP không chính xác hoặc đã hết hạn' });
+      }
+    } else if (!record) {
+      return res.status(400).json({ message: 'Mã OTP không chính xác hoặc đã hết hạn' });
+    }
 
     user.password = newPassword;
     user.resetPasswordOTP = undefined;
     user.resetPasswordOTPExpires = undefined;
     await user.save();
 
-    res.json({ success: true, message: 'Mat khau cua ban da duoc thay doi thanh cong! Vui long dang nhap lai.' });
+    await EmailOTP.deleteOne({ email: normalizedEmail, type: 'reset' });
+
+    res.json({ success: true, message: 'Mật khẩu của bạn đã được thay đổi thành công! Vui lòng đăng nhập lại.' });
   } catch (error) {
     console.error('Reset Password Error:', error);
-    res.status(500).json({ message: 'Loi may chu trong qua trinh dat lai mat khau', error: error.message });
+    res.status(500).json({ message: 'Lỗi máy chủ trong quá trình đặt lại mật khẩu', error: error.message });
   }
 };
 
@@ -401,22 +467,22 @@ const resetPassword = async (req, res) => {
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword) return res.status(400).json({ message: 'Vui long dien day du thong tin' });
-    if (newPassword.length < 6) return res.status(400).json({ message: 'Mat khau moi phai co it nhat 6 ky tu' });
+    if (!currentPassword || !newPassword) return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin' });
+    if (newPassword.length < 6) return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
 
     const user = await User.findById(req.user._id);
-    if (!user) return res.status(404).json({ message: 'Khong tim thay nguoi dung' });
+    if (!user) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
 
     const isValid = await user.matchPassword(currentPassword);
-    if (!isValid) return res.status(400).json({ message: 'Mat khau hien tai khong dung' });
+    if (!isValid) return res.status(400).json({ message: 'Mật khẩu hiện tại không đúng' });
 
     user.password = newPassword;
     await user.save();
 
-    res.json({ success: true, message: 'Mat khau da duoc thay doi thanh cong!' });
+    res.json({ success: true, message: 'Mật khẩu đã được thay đổi thành công!' });
   } catch (error) {
     console.error('Change Password Error:', error);
-    res.status(500).json({ message: 'Loi may chu', error: error.message });
+    res.status(500).json({ message: 'Lỗi máy chủ', error: error.message });
   }
 };
 

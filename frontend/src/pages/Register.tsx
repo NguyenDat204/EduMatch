@@ -63,7 +63,11 @@ export const Register = () => {
     setOtpSending(true);
     try {
       const res = await authService.sendVerifyOTP(email, name);
-      setInfo(res.message || 'Mã OTP đã được gửi đến email của bạn.');
+      setInfo(
+        res.devOtp
+          ? `${res.message} Mã OTP (dev): ${res.devOtp}`
+          : (res.message || 'Mã OTP đã được gửi đến email của bạn.')
+      );
       setStep('otp');
       startCooldown();
     } catch (err: any) {
@@ -114,7 +118,11 @@ export const Register = () => {
     setOtpSending(true);
     try {
       const res = await authService.sendVerifyOTP(email, name);
-      setInfo(res.message || 'Đã gửi lại mã OTP.');
+      setInfo(
+        res.devOtp
+          ? `${res.message} Mã OTP (dev): ${res.devOtp}`
+          : (res.message || 'Đã gửi lại mã OTP.')
+      );
       setOtp(['', '', '', '', '', '']);
       otpRefs.current[0]?.focus();
       startCooldown();

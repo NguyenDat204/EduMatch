@@ -4,7 +4,7 @@ import {
   Mail, ArrowRight, KeyRound, Sparkles, Lock, Loader2,
   AlertCircle, CheckCircle2, Eye, EyeOff, RotateCcw,
 } from 'lucide-react';
-import { authService, apiClient } from '../services/api';
+import { authService } from '../services/api';
 
 type Step = 1 | 2;
 
@@ -66,7 +66,11 @@ export const ForgotPassword = () => {
     setIsLoading(true);
     try {
       const res = await authService.forgotPassword(email);
-      setSuccessMsg(res.message || 'Mã xác thực đã được gửi đến email của bạn!');
+      setSuccessMsg(
+        res.devOtp
+          ? `${res.message} Mã OTP (dev): ${res.devOtp}`
+          : (res.message || 'Mã xác thực đã được gửi đến email của bạn!')
+      );
       setOtp(['', '', '', '', '', '']);
       setStep(2);
       startCooldown();
@@ -84,7 +88,11 @@ export const ForgotPassword = () => {
     setOtpSending(true);
     try {
       const res = await authService.forgotPassword(email);
-      setSuccessMsg(res.message || 'Đã gửi lại mã OTP.');
+      setSuccessMsg(
+        res.devOtp
+          ? `${res.message} Mã OTP (dev): ${res.devOtp}`
+          : (res.message || 'Đã gửi lại mã OTP.')
+      );
       setOtp(['', '', '', '', '', '']);
       otpRefs.current[0]?.focus();
       startCooldown();
@@ -120,8 +128,8 @@ export const ForgotPassword = () => {
 
     setIsLoading(true);
     try {
-      const res = await apiClient.post('/auth/reset-password', { email, otp: otpCode, newPassword });
-      if (res.data.success) {
+      const res = await authService.resetPassword(email, otpCode, newPassword);
+      if (res.success) {
         setIsDone(true);
         setTimeout(() => navigate('/login'), 2500);
       }
