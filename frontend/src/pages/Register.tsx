@@ -55,8 +55,8 @@ export const Register = () => {
 
             {/* Header */}
             <div className="text-center mb-7">
-              <div className="inline-flex items-center justify-center w-11 h-11 bg-primary-600 rounded-xl text-white mb-4">
-                <GraduationCap size={22} />
+              <div className="inline-flex items-center justify-center mb-4">
+                <img src="/edumatch_logo.jpg" alt="EduMatch" className="w-16 h-16 rounded-xl object-cover" />
               </div>
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Tạo tài khoản</h1>
               <p className="text-sm text-slate-500 dark:text-slate-400">Bắt đầu hành trình định hướng nghề nghiệp của bạn.</p>

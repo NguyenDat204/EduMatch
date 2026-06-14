@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, GraduationCap, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, ArrowRight, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 declare global {
@@ -184,8 +184,8 @@ export const Login = () => {
           <div className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-2xl p-8 shadow-card">
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-11 h-11 bg-primary-600 rounded-xl text-white mb-4">
-                <GraduationCap size={22} />
+              <div className="inline-flex items-center justify-center mb-4">
+                <img src="/edumatch_logo.jpg" alt="EduMatch" className="w-16 h-16 rounded-xl object-cover" />
               </div>
               <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Chào mừng trở lại</h1>
               <p className="text-sm text-slate-500 dark:text-slate-400">Tiếp tục hành trình định hướng nghề nghiệp của bạn.</p>
