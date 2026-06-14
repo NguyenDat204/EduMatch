@@ -12,6 +12,22 @@ const {
 } = require("../controllers/universityController");
 const { protect, admin } = require("../middleware/authMiddleware");
 
+// Optional auth middleware — attaches user if token present, proceeds anyway
+const optionalAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const jwt = require('jsonwebtoken');
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = { _id: decoded.id, id: decoded.id };
+    } catch {
+      // Invalid token → proceed as anonymous
+    }
+  }
+  next();
+};
+
 // Public routes
 router.get("/", getUniversities);
 
@@ -21,8 +37,8 @@ router.put("/managed/my-university", protect, updateMyUniversity);
 
 router.get("/:id", getUniversity);
 
-// Track 15-second details view
-router.post("/:id/view", protect, incrementViews);
+// Track instant view (no auth required but logs user if logged in)
+router.post("/:id/view", optionalAuth, incrementViews);
 
 // Admin-only routes
 router.post("/", protect, admin, createUniversity);

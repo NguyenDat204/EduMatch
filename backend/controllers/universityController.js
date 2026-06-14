@@ -108,9 +108,9 @@ const deleteUniversity = async (req, res) => {
   }
 };
 
-// @desc    Increment university views (15s delay trigger)
+// @desc    Increment university views (instant track)
 // @route   POST /api/universities/:id/view
-// @access  Private
+// @access  Public (with optional auth)
 const incrementViews = async (req, res) => {
   try {
     const university = await University.findById(req.params.id);
@@ -121,20 +121,20 @@ const incrementViews = async (req, res) => {
     university.views = (university.views || 0) + 1;
 
     // Log the user's action
-    if (req.user) {
+    if (req.user && req.user._id) {
       university.viewLogs.push({
         userId: req.user._id,
-        userName: req.user.name,
+        userName: req.user.name || 'Unknown',
         userSchool: req.user.academicInfo?.school || "Không rõ trường THPT",
         timestamp: new Date()
       });
-      console.log(`[UNI VIEWS] University "${university.name}" viewed by student "${req.user.name}"`);
+      console.log(`[UNI VIEWS] University "${university.name}" viewed by student "${req.user.name || req.user._id}"`);
     } else {
-      console.log(`[UNI VIEWS] University "${university.name}" viewed by anonymous student`);
+      console.log(`[UNI VIEWS] University "${university.name}" viewed by anonymous`);
     }
 
     await university.save();
-    res.json({ success: true, views: university.views, data: university });
+    res.json({ success: true, views: university.views, data: { views: university.views } });
   } catch (error) {
     console.error("Increment Views Error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
