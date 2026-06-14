@@ -295,7 +295,94 @@ const googleLogin = async (req, res) => {
   }
 };
 
-// @desc    Forgot Password request (Generates OTP)
+// @desc    Redirect to Google OAuth2 consent screen
+// @route   GET /api/auth/google/oauth
+// @access  Public
+const googleOAuthRedirect = (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const redirectUri = `${process.env.BACKEND_URL || 'https://edumatch-hfg8.onrender.com'}/api/auth/google/callback`;
+  const frontendUrl = process.env.FRONTEND_URL || 'https://edumatch-tau.vercel.app';
+
+  if (!clientId) {
+    return res.redirect(`${frontendUrl}/login?error=google_not_configured`);
+  }
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: 'openid email profile',
+    access_type: 'online',
+    prompt: 'select_account',
+  });
+
+  res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+};
+
+// @desc    Handle Google OAuth2 callback
+// @route   GET /api/auth/google/callback
+// @access  Public
+const googleOAuthCallback = async (req, res) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'https://edumatch-tau.vercel.app';
+  const redirectUri = `${process.env.BACKEND_URL || 'https://edumatch-hfg8.onrender.com'}/api/auth/google/callback`;
+  const { code, error } = req.query;
+
+  if (error || !code) {
+    return res.redirect(`${frontendUrl}/login?error=google_cancelled`);
+  }
+
+  try {
+    // Exchange code for tokens
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET || '',
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tokenData = await tokenRes.json();
+
+    if (!tokenData.access_token) {
+      console.error('[Google OAuth] Token exchange failed:', tokenData);
+      return res.redirect(`${frontendUrl}/login?error=google_token_failed`);
+    }
+
+    // Get user profile
+    const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const profile = await profileRes.json();
+
+    if (!profile.email || !profile.email_verified) {
+      return res.redirect(`${frontendUrl}/login?error=google_unverified`);
+    }
+
+    // Find or create user
+    let user = await User.findOne({ email: profile.email });
+    if (!user) {
+      user = await User.create({
+        name: profile.name || profile.email.split('@')[0],
+        email: profile.email,
+        password: Math.random().toString(36).slice(-10),
+        role: 'student',
+        avatar: profile.picture || '',
+      });
+    }
+
+    const appToken = generateToken(user._id);
+    // Redirect to frontend with token in URL fragment (không lưu trong URL history)
+    res.redirect(`${frontendUrl}/auth/callback#token=${appToken}`);
+  } catch (err) {
+    console.error('[Google OAuth Callback Error]', err);
+    res.redirect(`${frontendUrl}/login?error=google_server_error`);
+  }
+};
+
+
 // @route   POST /api/auth/forgot-password
 // @access  Public
 const forgotPassword = async (req, res) => {
@@ -416,6 +503,8 @@ module.exports = {
   registerUser,
   authUser,
   googleLogin,
+  googleOAuthRedirect,
+  googleOAuthCallback,
   forgotPassword,
   resetPassword,
   changePassword,

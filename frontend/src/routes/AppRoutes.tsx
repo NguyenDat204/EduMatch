@@ -7,6 +7,7 @@ const Home = lazy(() => import('../pages/Home').then(m => ({ default: m.Home }))
 const Login = lazy(() => import('../pages/Login').then(m => ({ default: m.Login })));
 const Register = lazy(() => import('../pages/Register').then(m => ({ default: m.Register })));
 const ForgotPassword = lazy(() => import('../pages/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
+const AuthCallback = lazy(() => import('../pages/AuthCallback').then(m => ({ default: m.AuthCallback })));
 
 
 // ─── Assessment Pages ─────────────────────────────────────────
