@@ -73,7 +73,7 @@ const sendOTPEmail = async (toEmail, otp, userName = '', type = 'reset') => {
   if (process.env.RESEND_API_KEY) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
-      const fromAddress = process.env.RESEND_FROM || 'EduMatch <onboarding@resend.dev>';
+      const fromAddress = process.env.RESEND_FROM || 'EduMatch <edumatchvn@gmail.com>';
       await resend.emails.send({
         from: fromAddress,
         to: toEmail,
