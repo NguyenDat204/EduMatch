@@ -1,6 +1,5 @@
 const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require('google-auth-library');
-const { google } = require('googleapis');
 const nodemailer = require("nodemailer");
 const { Resend } = require("resend");
 const User = require("../models/User");
@@ -8,9 +7,8 @@ const University = require("../models/University");
 
 // ==================== EMAIL SERVICE ====================
 // Priority:
-//  1. Gmail API via OAuth2 (GMAIL_REFRESH_TOKEN) — gửi từ edumatchvn@gmail.com, works on Render
-//  2. Resend HTTP API   (RESEND_API_KEY)          — fallback cloud provider
-//  3. Nodemailer SMTP   (EMAIL_USER+EMAIL_PASS)   — local dev only
+//  1. Resend HTTP API (RESEND_API_KEY)        — production on Render (no SMTP ports needed)
+//  2. Nodemailer SMTP (EMAIL_USER+EMAIL_PASS) — local dev only
 
 const buildEmailHtml = (otp, userName, type) => {
   const isVerify = type === 'verify';
@@ -60,44 +58,7 @@ const sendOTPEmail = async (toEmail, otp, userName = '', type = 'reset') => {
     : '[EduMatch] Ma xac thuc khoi phuc mat khau';
   const htmlBody = buildEmailHtml(otp, userName, type);
 
-  // ── Path 1: Gmail API via OAuth2 (Render production) ─────────────────────
-  if (process.env.GMAIL_REFRESH_TOKEN && process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET) {
-    try {
-      const auth = new google.auth.OAuth2(
-        process.env.GMAIL_CLIENT_ID,
-        process.env.GMAIL_CLIENT_SECRET,
-        'urn:ietf:wg:oauth:2.0:oob'
-      );
-      auth.setCredentials({ refresh_token: process.env.GMAIL_REFRESH_TOKEN });
-
-      const gmail = google.gmail({ version: 'v1', auth });
-      const fromEmail = process.env.GMAIL_USER || 'edumatchvn@gmail.com';
-
-      const rawMessage = [
-        `From: "EduMatch" <${fromEmail}>`,
-        `To: ${toEmail}`,
-        `Subject: ${subject}`,
-        'MIME-Version: 1.0',
-        'Content-Type: text/html; charset=utf-8',
-        '',
-        htmlBody,
-      ].join('\r\n');
-
-      const encoded = Buffer.from(rawMessage)
-        .toString('base64')
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-
-      await gmail.users.messages.send({ userId: 'me', requestBody: { raw: encoded } });
-      return true;
-    } catch (err) {
-      console.error('[EMAIL] Gmail API failed:', err.message);
-      // fall through to next provider
-    }
-  }
-
-  // ── Path 2: Resend HTTP API (cloud fallback) ──────────────────────────────
+  // ── Path 1: Resend HTTP API (production — Render) ────────────────────────
   if (process.env.RESEND_API_KEY) {
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
@@ -109,7 +70,7 @@ const sendOTPEmail = async (toEmail, otp, userName = '', type = 'reset') => {
     }
   }
 
-  // ── Path 3: Nodemailer SMTP (local dev only) ──────────────────────────────
+  // ── Path 2: Nodemailer SMTP (local dev only) ──────────────────────────────
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     console.error('[EMAIL] No email provider configured.');
     return false;
