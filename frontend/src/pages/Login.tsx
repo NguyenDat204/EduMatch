@@ -1,154 +1,106 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, GraduationCap, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
-
-// Nút Google tự render — không dùng GSI SDK, hoạt động mọi nơi
-const GoogleLoginButton = ({ onSuccess, onError }: {
-  onSuccess: (credential: string) => void;
-  onError: (msg: string) => void;
-}) => {
-  const [loading, setLoading] = useState(false);
-
-  const handleClick = useCallback(async () => {
-    if (!GOOGLE_CLIENT_ID) {
-      onError('Google Sign-In chưa được cấu hình.');
-      return;
-    }
-    setLoading(true);
-
-    // Dùng Google OAuth2 popup — hoạt động trên mọi trình duyệt và thiết bị
-    const width = 500;
-    const height = 600;
-    const left = window.screenX + (window.outerWidth - width) / 2;
-    const top = window.screenY + (window.outerHeight - height) / 2;
-
-    const params = new URLSearchParams({
-      client_id: GOOGLE_CLIENT_ID,
-      redirect_uri: `${window.location.origin}/auth/google/callback`,
-      response_type: 'token',
-      scope: 'openid email profile',
-      prompt: 'select_account',
-    });
-
-    const popup = window.open(
-      `https://accounts.google.com/o/oauth2/v2/auth?${params}`,
-      'google-login',
-      `width=${width},height=${height},left=${left},top=${top},scrollbars=yes`
-    );
-
-    if (!popup) {
-      setLoading(false);
-      onError('Popup bị chặn. Vui lòng cho phép popup và thử lại.');
-      return;
-    }
-
-    // Poll popup cho đến khi đóng hoặc nhận được token
-    const pollTimer = window.setInterval(async () => {
-      try {
-        if (popup.closed) {
-          window.clearInterval(pollTimer);
-          setLoading(false);
-          return;
-        }
-        const url = popup.location.href;
-        if (url.includes('/auth/google/callback') || url.includes('access_token')) {
-          popup.close();
-          window.clearInterval(pollTimer);
-
-          // Extract access_token từ hash
-          const hash = new URLSearchParams(url.split('#')[1] || url.split('?')[1] || '');
-          const accessToken = hash.get('access_token');
-          if (accessToken) {
-            // Lấy thông tin user từ Google
-            const resp = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo`, {
-              headers: { Authorization: `Bearer ${accessToken}` },
-            });
-            const profile = await resp.json();
-            if (profile.email) {
-              onSuccess(accessToken);
-            } else {
-              onError('Không lấy được thông tin tài khoản Google.');
-            }
-          } else {
-            onError('Đăng nhập Google không thành công.');
-          }
-          setLoading(false);
-        }
-      } catch {
-        // cross-origin — chưa redirect về callback, tiếp tục poll
-      }
-    }, 500);
-
-    // Timeout sau 2 phút
-    window.setTimeout(() => {
-      window.clearInterval(pollTimer);
-      if (!popup.closed) popup.close();
-      setLoading(false);
-    }, 120000);
-  }, [onSuccess, onError]);
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={loading}
-      className="w-full flex items-center justify-center gap-2.5 py-2.5 bg-white dark:bg-navy-800 hover:bg-slate-50 dark:hover:bg-navy-700 border border-slate-200 dark:border-navy-600 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors disabled:opacity-60"
-    >
-      {loading ? (
-        <Loader2 size={16} className="animate-spin text-slate-400" />
-      ) : (
-        <svg width="18" height="18" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
-      )}
-      {loading ? 'Đang xử lý...' : 'Đăng nhập với Google'}
-    </button>
-  );
-};
+declare global {
+  interface Window {
+    google?: any;
+    _googleInitialized?: boolean;
+  }
+}
 
 export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
   const { login, loginViaGoogle, isLoading } = useAuth();
   const navigate = useNavigate();
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+  const navigateRef = useRef(navigate);
+  const loginViaGoogleRef = useRef(loginViaGoogle);
+  const setErrorRef = useRef(setError);
+
+  useEffect(() => {
+    navigateRef.current = navigate;
+    loginViaGoogleRef.current = loginViaGoogle;
+    setErrorRef.current = setError;
+  });
+
+  const handleGoogleCredentialResponse = useCallback(async (response: any) => {
+    if (!response?.credential) {
+      setErrorRef.current('Đăng nhập Google không thành công. Vui lòng thử lại.');
+      return;
+    }
+    setErrorRef.current(null);
+    try {
+      await loginViaGoogleRef.current(response.credential);
+      navigateRef.current('/dashboard');
+    } catch (err: any) {
+      setErrorRef.current(err.message || 'Đăng nhập Google thất bại.');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!googleClientId) return;
+
+    const tryInit = () => {
+      if (!window.google?.accounts?.id) return false;
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+        use_fedcm_for_prompt: false,
+      });
+      // Tắt One Tap ngay sau initialize
+      window.google.accounts.id.cancel();
+      window._googleInitialized = true;
+
+      // Render nút chính thức của Google
+      if (googleBtnRef.current) {
+        window.google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: 'outline',
+          size: 'large',
+          width: Math.min(googleBtnRef.current.offsetWidth || 400, 400),
+          text: 'signin_with',
+          locale: 'vi',
+          shape: 'rectangular',
+        });
+      }
+      setGoogleReady(true);
+      return true;
+    };
+
+    if (tryInit()) return;
+
+    // Xóa script cũ nếu có để load lại
+    const old = document.getElementById('google-gsi');
+    if (old) old.remove();
+    window._googleInitialized = false;
+
+    const script = document.createElement('script');
+    script.id = 'google-gsi';
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.onload = () => tryInit();
+    script.onerror = () => console.warn('Google GSI failed to load');
+    document.head.appendChild(script);
+  }, [googleClientId, handleGoogleCredentialResponse]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     try {
       const userData = await login(email, password);
-      if (userData && (userData as any).role === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/dashboard');
-      }
+      navigate((userData as any)?.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err: any) {
       setError(err.message || 'Email hoặc mật khẩu không chính xác.');
     }
   }, [email, password, login, navigate]);
-
-  const handleGoogleSuccess = useCallback(async (accessToken: string) => {
-    setError(null);
-    try {
-      // Gửi access token lên backend — backend dùng để verify và lấy profile
-      await loginViaGoogle(accessToken);
-      navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Đăng nhập Google thất bại.');
-    }
-  }, [loginViaGoogle, navigate]);
-
-  const handleGoogleError = useCallback((msg: string) => {
-    setError(msg);
-  }, []);
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4 py-12">
@@ -176,9 +128,7 @@ export const Login = () => {
               <div className="relative">
                 <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="email"
-                  required
-                  value={email}
+                  type="email" required value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="student@edumatch.vn"
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all placeholder:text-slate-400"
@@ -196,9 +146,7 @@ export const Login = () => {
               <div className="relative">
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
+                  type={showPassword ? 'text' : 'password'} required value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all placeholder:text-slate-400"
@@ -210,15 +158,12 @@ export const Login = () => {
             </div>
 
             <button
-              type="submit"
-              disabled={isLoading}
+              type="submit" disabled={isLoading}
               className="w-full py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:pointer-events-none mt-2"
             >
-              {isLoading ? (
-                <><Loader2 size={16} className="animate-spin" /> Đang đăng nhập...</>
-              ) : (
-                <><span>Đăng nhập</span><ArrowRight size={16} /></>
-              )}
+              {isLoading
+                ? <><Loader2 size={16} className="animate-spin" /> Đang đăng nhập...</>
+                : <><span>Đăng nhập</span><ArrowRight size={16} /></>}
             </button>
           </form>
 
@@ -231,7 +176,20 @@ export const Login = () => {
             </div>
           </div>
 
-          <GoogleLoginButton onSuccess={handleGoogleSuccess} onError={handleGoogleError} />
+          {/* Google button container */}
+          {googleClientId ? (
+            <div className="w-full flex justify-center min-h-[44px] items-center">
+              {/* Google SDK renders into this div */}
+              <div ref={googleBtnRef} className="w-full flex justify-center" />
+              {!googleReady && (
+                <div className="absolute flex items-center gap-2 text-sm text-slate-400">
+                  <Loader2 size={14} className="animate-spin" /> Đang tải...
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 text-center">Google Sign-In chưa được cấu hình.</p>
+          )}
 
           <p className="text-center mt-6 text-sm text-slate-500 dark:text-slate-400">
             Chưa có tài khoản?{' '}

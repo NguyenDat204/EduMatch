@@ -235,55 +235,23 @@ const googleLogin = async (req, res) => {
     let avatar = requestAvatar;
 
     if (token) {
-      // Try ID token first (GSI SDK), then fall back to access token (OAuth2 popup)
-      let verifiedEmail = null;
-      let verifiedName = null;
-      let verifiedAvatar = null;
-
-      // Attempt 1: verify as ID token
-      if (googleClient) {
-        try {
-          const ticket = await googleClient.verifyIdToken({
-            idToken: token,
-            audience: process.env.GOOGLE_CLIENT_ID,
-          });
-          const payload = ticket.getPayload();
-          if (payload && payload.email && payload.email_verified === true) {
-            verifiedEmail = payload.email;
-            verifiedName = payload.name || payload.email.split('@')[0];
-            verifiedAvatar = payload.picture || null;
-          }
-        } catch {
-          // Not an ID token — try as access token below
-        }
+      if (!googleClient) {
+        return res.status(500).json({ message: "Google login is not configured on the server." });
       }
 
-      // Attempt 2: use as access token — call Google userinfo endpoint
-      if (!verifiedEmail) {
-        try {
-          const resp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (resp.ok) {
-            const profile = await resp.json();
-            if (profile.email && profile.email_verified) {
-              verifiedEmail = profile.email;
-              verifiedName = profile.name || profile.email.split('@')[0];
-              verifiedAvatar = profile.picture || null;
-            }
-          }
-        } catch {
-          // ignore
-        }
-      }
+      const ticket = await googleClient.verifyIdToken({
+        idToken: token,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
 
-      if (!verifiedEmail) {
+      if (!payload || !payload.email || payload.email_verified !== true) {
         return res.status(401).json({ message: "Invalid Google token or unverified email." });
       }
 
-      email = verifiedEmail;
-      name = verifiedName;
-      avatar = verifiedAvatar;
+      email = payload.email;
+      name = payload.name || email.split("@")[0];
+      avatar = payload.picture || avatar;
     }
 
     if (!email) {
