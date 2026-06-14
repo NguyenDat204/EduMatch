@@ -6,34 +6,39 @@ const University = require("../models/University");
 
 // ==================== EMAIL SERVICE ====================
 const createTransporter = () => {
-  // Gmail with App Password — use direct SMTP (port 465 SSL) for reliability
-  if (process.env.EMAIL_SERVICE === 'gmail' || !process.env.EMAIL_HOST) {
+  // Custom SMTP host (non-Gmail)
+  if (process.env.EMAIL_HOST) {
     return nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
+      host: process.env.EMAIL_HOST,
+      port: parseInt(process.env.EMAIL_PORT || '587'),
+      secure: process.env.EMAIL_SECURE === 'true',
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
-      tls: { rejectUnauthorized: false },
-      // Explicit timeouts to avoid hanging requests (default nodemailer has no timeout)
-      connectionTimeout: 10000,  // 10s to establish TCP connection
-      greetingTimeout: 10000,    // 10s to receive SMTP greeting
-      socketTimeout: 15000,      // 15s idle socket timeout
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
   }
+
+  // Gmail — port 587 + STARTTLS (works on Render/cloud; port 465 is often blocked)
+  // Falls back to port 465 only if EMAIL_SMTP_PORT is explicitly set to 465
+  const smtpPort = parseInt(process.env.EMAIL_SMTP_PORT || '587');
+  const useSecure = smtpPort === 465;
+
   return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT || '587'),
-    secure: process.env.EMAIL_SECURE === 'true',
+    host: 'smtp.gmail.com',
+    port: smtpPort,
+    secure: useSecure,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
   });
 };
 
