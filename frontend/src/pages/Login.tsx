@@ -68,7 +68,7 @@ export const Login = () => {
     }
 
     const initGoogle = () => {
-      if (!window.google?.accounts?.id) return;
+      if (!window.google?.accounts?.id) return false;
 
       window.google.accounts.id.initialize({
         client_id: googleClientId,
@@ -79,7 +79,6 @@ export const Login = () => {
       window._googleInitialized = true;
       setGoogleReady(true);
 
-      // Render nút Google chính thức — hoạt động trên mọi thiết bị kể cả mobile
       if (googleBtnRef.current) {
         (window.google.accounts.id as any).renderButton(googleBtnRef.current, {
           theme: 'outline',
@@ -89,21 +88,31 @@ export const Login = () => {
           locale: 'vi',
         });
       }
+      return true;
     };
 
-    if (window.google?.accounts?.id) {
-      initGoogle();
-      return;
-    }
+    // Thử init ngay nếu script đã load sẵn
+    if (initGoogle()) return;
 
+    // Lắng nghe cả event và polling để đảm bảo catch được trên mọi trình duyệt/thiết bị
+    const onReady = () => { initGoogle(); };
+    window.addEventListener('google-gsi-ready', onReady);
+
+    // Polling dự phòng với timeout dài hơn cho mobile
     const interval = window.setInterval(() => {
-      if (window.google?.accounts?.id) {
-        initGoogle();
-        window.clearInterval(interval);
-      }
-    }, 200);
+      if (initGoogle()) window.clearInterval(interval);
+    }, 300);
 
-    return () => window.clearInterval(interval);
+    // Dừng sau 15 giây nếu vẫn không load được
+    const timeout = window.setTimeout(() => {
+      window.clearInterval(interval);
+    }, 15000);
+
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(timeout);
+      window.removeEventListener('google-gsi-ready', onReady);
+    };
   }, [googleClientId, handleGoogleCredentialResponse]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
@@ -208,20 +217,20 @@ export const Login = () => {
 
             {/* Google Sign-In button — rendered bởi Google SDK, hoạt động trên mọi thiết bị */}
             {googleConfigured ? (
-              <div
-                ref={googleBtnRef}
-                className="w-full flex justify-center"
-                style={{ minHeight: '44px' }}
-              />
+              <div className="relative w-full" style={{ minHeight: '44px' }}>
+                {/* Google SDK render button vào đây */}
+                <div ref={googleBtnRef} className="w-full flex justify-center" />
+                {/* Spinner chỉ hiện khi chưa render xong */}
+                {!googleReady && (
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 py-2.5 bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg text-sm text-slate-400">
+                    <Loader2 size={14} className="animate-spin" /> Đang tải Google Sign-In...
+                  </div>
+                )}
+              </div>
             ) : (
-              <p className="mt-2 text-xs text-rose-500 text-center">
+              <p className="text-xs text-rose-500 text-center">
                 Google Sign-In chưa được cấu hình.
               </p>
-            )}
-            {!googleReady && googleConfigured && (
-              <div className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg text-sm text-slate-400">
-                <Loader2 size={14} className="animate-spin" /> Đang tải Google Sign-In...
-              </div>
             )}
 
             <p className="text-center mt-6 text-sm text-slate-500 dark:text-slate-400">
