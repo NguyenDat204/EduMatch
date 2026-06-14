@@ -64,13 +64,28 @@ export const Dashboard = () => {
   useEffect(() => {
     if (!user) return;
     const loadFallbackCareers = async () => {
+      // Lấy roadmap từ localStorage cache (được lưu bởi trang Result)
+      const uid = user._id || user.email || 'anon';
+      let cachedCareers: any[] = [];
+      try {
+        const cachedRaw = localStorage.getItem(`edumatch_result_cache_${uid}`);
+        if (cachedRaw) cachedCareers = JSON.parse(cachedRaw).careers || [];
+      } catch { /* ignore */ }
+
+      const mergeRoadmap = (career: any) => {
+        const match = cachedCareers.find(
+          (c: any) => c.title?.toLowerCase() === career.title?.toLowerCase()
+        );
+        return { ...career, roadmap: match?.roadmap || career.roadmap || [] };
+      };
+
       if (hasTakenSurvey && testResults.careers && testResults.careers.length > 0) {
-        setRecommendedCareers(testResults.careers.slice(0, 2));
+        setRecommendedCareers(testResults.careers.slice(0, 2).map(mergeRoadmap));
         return;
       }
       try {
         const res = await careerService.getCareers();
-        if (res.success && res.data) setRecommendedCareers(res.data.slice(0, 2));
+        if (res.success && res.data) setRecommendedCareers(res.data.slice(0, 2).map(mergeRoadmap));
       } catch (err) {
         console.warn('Failed to load careers for dashboard:', err);
         setRecommendedCareers([]);
@@ -291,7 +306,7 @@ export const Dashboard = () => {
                 <CareerCard
                   key={career._id || career.id || index}
                   career={{
-                    id:          career._id || career.id || `career-${index}`,
+                    id:          career._id || career.id || `title:${encodeURIComponent(career.title || '')}`,
                     title:       career.title,
                     description: career.description,
                     salary:      career.salary || '$100k - $120k',
@@ -299,6 +314,7 @@ export const Dashboard = () => {
                     skills:      career.skills || [],
                     suitability: career.suitability || 85,
                     category:    career.category || 'Công nghệ',
+                    roadmap:     Array.isArray(career.roadmap) ? career.roadmap : [],
                   }}
                 />
               ))}
