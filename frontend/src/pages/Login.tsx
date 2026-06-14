@@ -69,18 +69,8 @@ export const Login = () => {
       return;
     }
 
-    // Already initialized — just mark ready, no need to re-initialize SDK
-    if (window._googleInitialized) {
-      setGoogleReady(true);
-      return;
-    }
-
-    const initGoogle = () => {
-      if (window._googleInitialized) {
-        setGoogleReady(true);
-        return;
-      }
-
+    const initializeOnce = () => {
+      if (window._googleInitialized) return;
       if (window.google?.accounts?.id) {
         window.google.accounts.id.initialize({
           client_id: googleClientId,
@@ -89,31 +79,54 @@ export const Login = () => {
           cancel_on_tap_outside: true,
         });
         window._googleInitialized = true;
-        setGoogleReady(true);
-
-        // Render nút Google chính thức — hoạt động trên mọi thiết bị kể cả mobile
-        if (googleBtnRef.current) {
-          (window.google.accounts.id as any).renderButton(googleBtnRef.current, {
-            theme: 'outline',
-            size: 'large',
-            width: googleBtnRef.current.offsetWidth || 400,
-            text: 'signin_with',
-            locale: 'vi',
-          });
-        }
       }
     };
 
+    const renderGoogleButton = () => {
+      if (!window.google?.accounts?.id || !googleBtnRef.current) return;
+
+      // Important for mobile: width can be 0 at first render.
+      const el = googleBtnRef.current;
+      const width = el.clientWidth || el.offsetWidth || 400;
+
+      // Clear container so renderButton re-renders correctly after logout/login.
+      // (SDK can keep internal button state; container reset avoids missing button.)
+      el.innerHTML = '';
+
+      (window.google.accounts.id as any).renderButton(el, {
+        theme: 'outline',
+        size: 'large',
+        width,
+        text: 'signin_with',
+        locale: 'vi',
+      });
+
+      setGoogleReady(true);
+    };
+
+    const initAndRender = () => {
+      initializeOnce();
+      // Render after layout so mobile width is correct
+      requestAnimationFrame(() => {
+        renderGoogleButton();
+      });
+
+      // Retry once for cases where mobile layout settles slightly later
+      setTimeout(() => {
+        renderGoogleButton();
+      }, 150);
+    };
+
     if (window.google?.accounts?.id) {
-      initGoogle();
+      initAndRender();
       return;
     }
 
     // Poll until Google GSI script finishes loading
     const interval = window.setInterval(() => {
       if (window.google?.accounts?.id) {
-        initGoogle();
         window.clearInterval(interval);
+        initAndRender();
       }
     }, 200);
 
