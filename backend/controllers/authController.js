@@ -1,122 +1,122 @@
 const jwt = require("jsonwebtoken");
 const { OAuth2Client } = require('google-auth-library');
 const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const User = require("../models/User");
 const University = require("../models/University");
 
 // ==================== EMAIL SERVICE ====================
-const createTransporter = () => {
-  // Custom SMTP host (non-Gmail)
-  if (process.env.EMAIL_HOST) {
-    return nodemailer.createTransport({
-      host: process.env.EMAIL_HOST,
-      port: parseInt(process.env.EMAIL_PORT || '587'),
-      secure: process.env.EMAIL_SECURE === 'true',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-    });
-  }
-
-  // Gmail — port 587 + STARTTLS (works on Render/cloud; port 465 is often blocked)
-  // Falls back to port 465 only if EMAIL_SMTP_PORT is explicitly set to 465
-  const smtpPort = parseInt(process.env.EMAIL_SMTP_PORT || '587');
-  const useSecure = smtpPort === 465;
-
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: smtpPort,
-    secure: useSecure,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-    tls: { rejectUnauthorized: false },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
-  });
-};
+// Strategy:
+//  1. If RESEND_API_KEY is set → use Resend HTTP API (works on Render/cloud, no SMTP ports needed)
+//  2. Otherwise → fall back to nodemailer SMTP (works locally)
 
 const sendOTPEmail = async (toEmail, otp, userName = '', type = 'reset') => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    return false;
-  }
-
-
   const isVerify = type === 'verify';
   const subject  = isVerify
     ? '[EduMatch] Xác thực email đăng ký tài khoản'
     : '[EduMatch] Mã xác thực khôi phục mật khẩu';
-  const title    = isVerify ? 'Xác thực email của bạn' : 'Khôi phục mật khẩu';
   const subtitle = isVerify
     ? 'Hoàn tất đăng ký tài khoản EduMatch'
     : 'Đặt lại mật khẩu tài khoản EduMatch';
   const bodyText = isVerify
     ? 'Bạn vừa đăng ký tài khoản EduMatch. Vui lòng sử dụng mã OTP dưới đây để xác thực địa chỉ email của bạn:'
     : 'Bạn đã yêu cầu khôi phục mật khẩu cho tài khoản EduMatch. Vui lòng sử dụng mã OTP dưới đây để đặt lại mật khẩu:';
-  const warningText = isVerify
-    ? '⚠️ Mã OTP này <strong>sẽ hết hạn sau 10 phút</strong>. Không chia sẻ mã này với bất kỳ ai.'
-    : '⚠️ Mã OTP này <strong>sẽ hết hạn sau 10 phút</strong>. Không chia sẻ mã này với bất kỳ ai.';
+  const warningText = '⚠️ Mã OTP này <strong>sẽ hết hạn sau 10 phút</strong>. Không chia sẻ mã này với bất kỳ ai.';
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; margin: 0; padding: 0; }
+        .container { max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+        .header { background: linear-gradient(135deg, #2563eb, #1a4fd6); padding: 36px 32px; text-align: center; }
+        .header h1 { color: white; margin: 0; font-size: 24px; font-weight: 700; }
+        .header p { color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px; }
+        .body { padding: 40px 32px; }
+        .greeting { color: #1e293b; font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+        .text { color: #64748b; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+        .otp-box { background: #eff6ff; border: 2px dashed #2563eb; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0; }
+        .otp-code { font-size: 40px; font-weight: 900; color: #2563eb; letter-spacing: 8px; font-family: monospace; }
+        .otp-label { color: #94a3b8; font-size: 12px; margin-top: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+        .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 0 8px 8px 0; color: #92400e; font-size: 13px; margin: 20px 0; }
+        .footer { background: #f8fafc; padding: 20px 32px; text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>EduMatch</h1>
+          <p>${subtitle}</p>
+        </div>
+        <div class="body">
+          <p class="greeting">Xin chào${userName ? ` ${userName}` : ''}!</p>
+          <p class="text">${bodyText}</p>
+          <div class="otp-box">
+            <div class="otp-code">${otp}</div>
+            <div class="otp-label">Mã xác thực (OTP)</div>
+          </div>
+          <div class="warning">${warningText}</div>
+          <p class="text">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email. Tài khoản của bạn vẫn an toàn.</p>
+        </div>
+        <div class="footer">
+          <p>© ${new Date().getFullYear()} EduMatch · Tất cả quyền được bảo lưu</p>
+          <p style="margin-top:4px">Email này được gửi tự động, vui lòng không trả lời.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  // ── Path 1: Resend HTTP API (production / Render) ─────────────────────────
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      const fromAddress = process.env.RESEND_FROM || 'EduMatch <onboarding@resend.dev>';
+      await resend.emails.send({
+        from: fromAddress,
+        to: toEmail,
+        subject,
+        html: htmlBody,
+      });
+      return true;
+    } catch (err) {
+      console.error('[EMAIL] Resend API failed:', err.message);
+      return false;
+    }
+  }
+
+  // ── Path 2: Nodemailer SMTP (local development fallback) ──────────────────
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('[EMAIL] No email provider configured. Set RESEND_API_KEY (production) or EMAIL_USER+EMAIL_PASS (local).');
+    return false;
+  }
 
   try {
-    const transporter = createTransporter();
-    const info = await transporter.sendMail({
-      from: `"EduMatch 🎓" <${process.env.EMAIL_USER}>`,
+    const smtpPort = parseInt(process.env.EMAIL_SMTP_PORT || '587');
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
+    });
+    await transporter.sendMail({
+      from: `"EduMatch" <${process.env.EMAIL_USER}>`,
       to: toEmail,
       subject,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; margin: 0; padding: 0; }
-            .container { max-width: 520px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-            .header { background: linear-gradient(135deg, #2563eb, #1a4fd6); padding: 36px 32px; text-align: center; }
-            .header h1 { color: white; margin: 0; font-size: 24px; font-weight: 700; }
-            .header p { color: rgba(255,255,255,0.8); margin: 8px 0 0; font-size: 14px; }
-            .body { padding: 40px 32px; }
-            .greeting { color: #1e293b; font-size: 16px; font-weight: 600; margin-bottom: 16px; }
-            .text { color: #64748b; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
-            .otp-box { background: #eff6ff; border: 2px dashed #2563eb; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0; }
-            .otp-code { font-size: 40px; font-weight: 900; color: #2563eb; letter-spacing: 8px; font-family: monospace; }
-            .otp-label { color: #94a3b8; font-size: 12px; margin-top: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-            .warning { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 0 8px 8px 0; color: #92400e; font-size: 13px; margin: 20px 0; }
-            .footer { background: #f8fafc; padding: 20px 32px; text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid #e2e8f0; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>🎓 EduMatch</h1>
-              <p>${subtitle}</p>
-            </div>
-            <div class="body">
-              <p class="greeting">Xin chào${userName ? ` ${userName}` : ''}!</p>
-              <p class="text">${bodyText}</p>
-              <div class="otp-box">
-                <div class="otp-code">${otp}</div>
-                <div class="otp-label">Mã xác thực (OTP)</div>
-              </div>
-              <div class="warning">${warningText}</div>
-              <p class="text">Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email. Tài khoản của bạn vẫn an toàn.</p>
-            </div>
-            <div class="footer">
-              <p>© ${new Date().getFullYear()} EduMatch · Tất cả quyền được bảo lưu</p>
-              <p style="margin-top:4px">Email này được gửi tự động, vui lòng không trả lời.</p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
+      html: htmlBody,
     });
     return true;
   } catch (err) {
+    console.error('[EMAIL] SMTP failed:', err.code, err.message);
     return false;
   }
 };

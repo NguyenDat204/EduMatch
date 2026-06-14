@@ -26,6 +26,7 @@
     "mongoose": "^9.2.4",
     "nodemailer": "^6.9.14",
     "p-retry": "^8.0.0",
+    "resend": "6.12.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
