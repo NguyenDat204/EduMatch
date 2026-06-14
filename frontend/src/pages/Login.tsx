@@ -14,8 +14,10 @@ declare global {
             callback: (response: { credential?: string }) => void;
             auto_select?: boolean;
             cancel_on_tap_outside?: boolean;
+            use_fedcm_for_prompt?: boolean;
           }) => void;
           prompt: () => void;
+          disableAutoSelect: () => void;
           renderButton: (parent: HTMLElement, options: Record<string, any>) => void;
         };
       };
@@ -35,25 +37,23 @@ export const Login = () => {
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const googleBtnRef = useRef<HTMLDivElement>(null);
 
-  // Refs to always hold the latest navigate/loginViaGoogle without re-initializing Google SDK
+  // Refs to always hold the latest values without re-initializing Google SDK
   const navigateRef = useRef(navigate);
   const loginViaGoogleRef = useRef(loginViaGoogle);
   const setErrorRef = useRef(setError);
 
-  // Keep refs in sync with latest values on every render
   useEffect(() => {
     navigateRef.current = navigate;
     loginViaGoogleRef.current = loginViaGoogle;
     setErrorRef.current = setError;
   });
 
-  // Stable callback passed to Google SDK — never changes identity, always uses latest refs
+  // Stable callback — identity never changes, uses latest refs
   const handleGoogleCredentialResponse = useCallback(async (response: { credential?: string }) => {
     if (!response?.credential) {
       setErrorRef.current('Đăng nhập Google không thành công. Vui lòng thử lại.');
       return;
     }
-
     setErrorRef.current(null);
     try {
       await loginViaGoogleRef.current(response.credential);
@@ -61,7 +61,7 @@ export const Login = () => {
     } catch (err: any) {
       setErrorRef.current(err.message || 'Đăng nhập Google thất bại.');
     }
-  }, []); // empty deps — identity is stable for the lifetime of the component // empty deps — identity is stable for the lifetime of the component
+  }, []);
 
   useEffect(() => {
     if (!googleClientId) {
@@ -69,31 +69,37 @@ export const Login = () => {
       return;
     }
 
-    const initializeOnce = () => {
-      if (window._googleInitialized) return;
-      if (window.google?.accounts?.id) {
-        window.google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: handleGoogleCredentialResponse,
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        });
-        window._googleInitialized = true;
-      }
+    const initializeGSI = () => {
+      if (!window.google?.accounts?.id) return false;
+
+      // Always re-initialize so the callback is fresh and One Tap / FedCM popup
+      // is disabled — prevents the "account overlay" appearing on desktop browsers.
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+        use_fedcm_for_prompt: false, // disable FedCM auto-prompt on Chrome
+      });
+      // Explicitly disable auto-select so no One Tap overlay appears
+      window.google.accounts.id.disableAutoSelect();
+      window._googleInitialized = true;
+      return true;
     };
 
     const renderGoogleButton = () => {
-      if (!window.google?.accounts?.id || !googleBtnRef.current) return;
+      if (!window.google?.accounts?.id || !googleBtnRef.current) return false;
 
-      // Important for mobile: width can be 0 at first render.
       const el = googleBtnRef.current;
-      const width = el.clientWidth || el.offsetWidth || 400;
+      // On mobile the element may not yet have layout width — fall back to
+      // the container's actual rendered width via getBoundingClientRect.
+      const rect = el.getBoundingClientRect();
+      const width = Math.round(rect.width) || el.clientWidth || el.offsetWidth || 400;
 
-      // Clear container so renderButton re-renders correctly after logout/login.
-      // (SDK can keep internal button state; container reset avoids missing button.)
-      el.innerHTML = '';
+      if (width < 10) return false; // layout not ready yet, caller will retry
 
-      (window.google.accounts.id as any).renderButton(el, {
+      el.innerHTML = ''; // reset so SDK re-renders cleanly
+      window.google.accounts.id.renderButton(el, {
         theme: 'outline',
         size: 'large',
         width,
@@ -102,19 +108,30 @@ export const Login = () => {
       });
 
       setGoogleReady(true);
+      return true;
     };
 
     const initAndRender = () => {
-      initializeOnce();
-      // Render after layout so mobile width is correct
-      requestAnimationFrame(() => {
-        renderGoogleButton();
-      });
+      const inited = initializeGSI();
+      if (!inited) return;
 
-      // Retry once for cases where mobile layout settles slightly later
-      setTimeout(() => {
-        renderGoogleButton();
-      }, 150);
+      // First attempt after current paint
+      requestAnimationFrame(() => {
+        if (!renderGoogleButton()) {
+          // Mobile: layout may not be ready after first rAF — retry with
+          // increasing delays until the element has a non-zero width.
+          const delays = [100, 300, 600, 1000];
+          let idx = 0;
+          const retry = () => {
+            if (idx >= delays.length) return;
+            setTimeout(() => {
+              if (!renderGoogleButton()) retry();
+              idx++;
+            }, delays[idx++]);
+          };
+          retry();
+        }
+      });
     };
 
     if (window.google?.accounts?.id) {
@@ -122,7 +139,7 @@ export const Login = () => {
       return;
     }
 
-    // Poll until Google GSI script finishes loading
+    // Poll until GSI script finishes loading (async defer in index.html)
     const interval = window.setInterval(() => {
       if (window.google?.accounts?.id) {
         window.clearInterval(interval);
@@ -237,13 +254,19 @@ export const Login = () => {
 
             {/* Google Sign-In — SDK tự render, hoạt động mọi thiết bị */}
             {googleConfigured ? (
-              <div className="w-full min-h-[44px] flex justify-center items-center">
-                <div ref={googleBtnRef} className="w-full" />
+              <div className="w-full">
+                {/* Loader hiển thị khi nút chưa sẵn sàng */}
                 {!googleReady && (
                   <div className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg text-sm text-slate-400">
                     <Loader2 size={14} className="animate-spin" /> Đang tải...
                   </div>
                 )}
+                {/* Container nút Google — luôn mount để SDK có thể đo width đúng */}
+                <div
+                  ref={googleBtnRef}
+                  className="w-full"
+                  style={{ display: googleReady ? 'block' : 'none' }}
+                />
               </div>
             ) : (
               <p className="text-xs text-rose-500 text-center">Google Sign-In chưa được cấu hình.</p>
