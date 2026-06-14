@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Compass, GraduationCap, MessageSquare,
+  LayoutDashboard, Compass, MessageSquare,
   User, CreditCard, LogOut, ChevronLeft, ChevronRight,
   Target, Sparkles, BookOpen, Building2, History, X,
 } from 'lucide-react';
@@ -78,9 +78,7 @@ export const Sidebar = ({ onCollapsedChange }: SidebarProps) => {
       )}>
         {(!isCollapsed || mobileOpen) && (
           <Link to="/dashboard" className="flex items-center gap-2.5" onClick={onNavClick}>
-            <div className="w-7 h-7 bg-primary-600 rounded-md flex items-center justify-center shrink-0">
-              <GraduationCap size={15} className="text-white" />
-            </div>
+            <img src="/edumatch_logo.jpg" alt="EduMatch" className="w-7 h-7 rounded-md object-cover shrink-0" />
             <span className="text-base font-bold text-white tracking-tight">EduMatch</span>
           </Link>
         )}

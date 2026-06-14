@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, GraduationCap, LayoutDashboard, LogOut, Loader2 } from 'lucide-react';
+import { Menu, X, LayoutDashboard, LogOut, Loader2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { useAIStatus } from '../hooks/useAIStatus';
 
@@ -35,9 +35,7 @@ export const Navbar = () => {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-              <GraduationCap size={18} className="text-white" />
-            </div>
+            <img src="/edumatch_logo.jpg" alt="EduMatch" className="w-8 h-8 rounded-lg object-cover shrink-0" />
             <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
               EduMatch
             </span>
