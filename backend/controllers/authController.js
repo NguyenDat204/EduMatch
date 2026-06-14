@@ -17,6 +17,10 @@ const createTransporter = () => {
         pass: process.env.EMAIL_PASS,
       },
       tls: { rejectUnauthorized: false },
+      // Explicit timeouts to avoid hanging requests (default nodemailer has no timeout)
+      connectionTimeout: 10000,  // 10s to establish TCP connection
+      greetingTimeout: 10000,    // 10s to receive SMTP greeting
+      socketTimeout: 15000,      // 15s idle socket timeout
     });
   }
   return nodemailer.createTransport({
@@ -27,14 +31,17 @@ const createTransporter = () => {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
   });
 };
 
 const sendOTPEmail = async (toEmail, otp, userName = '', type = 'reset') => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.warn('[EMAIL] EMAIL_USER or EMAIL_PASS not configured. OTP will only be logged.');
     return false;
   }
+
 
   const isVerify = type === 'verify';
   const subject  = isVerify
@@ -53,7 +60,6 @@ const sendOTPEmail = async (toEmail, otp, userName = '', type = 'reset') => {
 
   try {
     const transporter = createTransporter();
-    console.log('[EMAIL] Attempting to send to:', toEmail, '| from:', process.env.EMAIL_USER);
     const info = await transporter.sendMail({
       from: `"EduMatch 🎓" <${process.env.EMAIL_USER}>`,
       to: toEmail,
@@ -104,12 +110,8 @@ const sendOTPEmail = async (toEmail, otp, userName = '', type = 'reset') => {
         </html>
       `,
     });
-    console.log(`[EMAIL] ${type} OTP sent successfully to ${toEmail} | messageId:`, info.messageId);
     return true;
   } catch (err) {
-    console.error('[EMAIL] Failed to send OTP email:', err.message);
-    console.error('[EMAIL] Full error:', JSON.stringify({ code: err.code, command: err.command, response: err.response, responseCode: err.responseCode }));
-    console.error('[EMAIL] EMAIL_USER configured:', !!process.env.EMAIL_USER, '→', process.env.EMAIL_USER?.substring(0, 8) + '***');
     return false;
   }
 };
@@ -133,47 +135,32 @@ const sendVerifyOTP = async (req, res) => {
     const { email, name } = req.body;
     if (!email) return res.status(400).json({ message: 'Email là bắt buộc' });
 
-    // Check if already registered
+    // Check if already fully registered
     const existing = await User.findOne({ email });
     if (existing && existing.isEmailVerified) {
       return res.status(400).json({ message: 'Email này đã được đăng ký. Vui lòng đăng nhập.' });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = Date.now() + 10 * 60 * 1000;
 
-    // Store OTP temporarily — reuse resetPassword fields for simplicity
-    // (or on the existing unverified user if exists)
-    if (existing) {
+    // Always store in the in-memory OTP store (single source of truth for verify flow).
+    // This avoids the split-brain problem where OTP is sometimes in DB, sometimes in memory.
+    if (!global._emailOTPStore) global._emailOTPStore = {};
+    global._emailOTPStore[email] = {
+      otp,
+      expires,
+      name: name || '',
+      verified: false,
+    };
+
+    // Also persist on the unverified user doc if one already exists (belt-and-suspenders).
+    if (existing && !existing.isEmailVerified) {
       existing.resetPasswordOTP = otp;
-      existing.resetPasswordOTPExpires = Date.now() + 10 * 60 * 1000;
+      existing.resetPasswordOTPExpires = expires;
       await existing.save();
-    } else {
-      // Store in a temporary map in memory — but for persistence across restarts
-      // we'll create a temp unverified user or use a separate in-memory store
-      // Simplest reliable approach: store on a temp user doc
-      const tempUser = await User.findOneAndUpdate(
-        { email, isEmailVerified: false },
-        {
-          $set: {
-            resetPasswordOTP: otp,
-            resetPasswordOTPExpires: Date.now() + 10 * 60 * 1000,
-          }
-        },
-        { upsert: false, new: true }
-      );
-      if (!tempUser) {
-        // No user yet — just keep OTP in response (user will submit with registration)
-        // Use a signed temporary token approach: store otp in a simple in-memory store
-        if (!global._emailOTPStore) global._emailOTPStore = {};
-        global._emailOTPStore[email] = {
-          otp,
-          expires: Date.now() + 10 * 60 * 1000,
-          name: name || '',
-        };
-      }
     }
 
-    console.log(`[VERIFY OTP] ${email} → ${otp}`);
     const emailSent = await sendOTPEmail(email, otp, name || '', 'verify');
 
     res.json({
@@ -197,7 +184,17 @@ const verifyEmailOTP = async (req, res) => {
     const { email, otp } = req.body;
     if (!email || !otp) return res.status(400).json({ message: 'Email và OTP là bắt buộc' });
 
-    // Check DB first (existing user flow)
+    // Primary check: in-memory store (covers both new and existing-unverified users)
+    if (!global._emailOTPStore) global._emailOTPStore = {};
+    const stored = global._emailOTPStore[email];
+    if (stored && stored.otp === otp && stored.expires > Date.now()) {
+      // Mark as verified so registerUser can proceed
+      global._emailOTPStore[email].verified = true;
+      return res.json({ success: true, message: 'Xác thực email thành công!' });
+    }
+
+    // Fallback: check DB (handles edge case where server restarted after sendVerifyOTP
+    // but the unverified user doc was already persisted)
     const user = await User.findOne({
       email,
       resetPasswordOTP: otp,
@@ -205,17 +202,17 @@ const verifyEmailOTP = async (req, res) => {
     });
 
     if (user) {
+      // Sync back to in-memory store so registerUser can find the verified flag
+      global._emailOTPStore[email] = {
+        otp,
+        expires: user.resetPasswordOTPExpires,
+        name: user.name || '',
+        verified: true,
+      };
+      // Clear OTP fields from DB
       user.resetPasswordOTP = undefined;
       user.resetPasswordOTPExpires = undefined;
       await user.save();
-      return res.json({ success: true, message: 'Xác thực email thành công!' });
-    }
-
-    // Check in-memory store (new user not yet created)
-    const stored = global._emailOTPStore?.[email];
-    if (stored && stored.otp === otp && stored.expires > Date.now()) {
-      // Mark as verified — store a verified flag so register can proceed
-      global._emailOTPStore[email].verified = true;
       return res.json({ success: true, message: 'Xác thực email thành công!' });
     }
 
@@ -244,7 +241,7 @@ const registerUser = async (req, res) => {
     }
 
     const userExists = await User.findOne({ email });
-    if (userExists) {
+    if (userExists && userExists.isEmailVerified) {
       return res.status(400).json({ message: "User already exists" });
     }
 
@@ -255,18 +252,35 @@ const registerUser = async (req, res) => {
     let finalRole = req.body.role || "student";
     if (count === 0) finalRole = "admin";
 
-    const user = await User.create({
-      name,
-      email,
-      password,
-      isEmailVerified: true,
-      role: finalRole,
-      academicInfo: {
+    // Reuse unverified user doc if one exists, otherwise create fresh
+    let user = await User.findOne({ email, isEmailVerified: false });
+    if (user) {
+      user.name = name;
+      user.password = password;
+      user.isEmailVerified = true;
+      user.role = finalRole;
+      user.academicInfo = {
         school: school || "",
         grade: grade || "12",
         majorInterest: majorInterest || "",
-      },
-    });
+      };
+      user.resetPasswordOTP = undefined;
+      user.resetPasswordOTPExpires = undefined;
+      await user.save();
+    } else {
+      user = await User.create({
+        name,
+        email,
+        password,
+        isEmailVerified: true,
+        role: finalRole,
+        academicInfo: {
+          school: school || "",
+          grade: grade || "12",
+          majorInterest: majorInterest || "",
+        },
+      });
+    }
 
     if (user) {
       if (finalRole === "university") {
@@ -439,15 +453,9 @@ const forgotPassword = async (req, res) => {
 
     // Save to user with 10 minutes expiration
     user.resetPasswordOTP = otp;
-    user.resetPasswordOTPExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.resetPasswordOTPExpires = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    console.log(`\n==============================================`);
-    console.log(`[OTP RECOVERY] EMAIL: ${email}`);
-    console.log(`[OTP RECOVERY] CODE:  ${otp}`);
-    console.log(`==============================================\n`);
-
-    // Attempt to send email — fall back gracefully if email not configured
     const emailSent = await sendOTPEmail(email, otp, user.name, 'reset');
 
     const message = emailSent

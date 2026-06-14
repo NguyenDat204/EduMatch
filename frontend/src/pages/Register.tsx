@@ -110,6 +110,7 @@ export const Register = () => {
   const handleResend = async () => {
     if (resendCooldown > 0) return;
     setError(null);
+    setInfo(null);
     setOtpSending(true);
     try {
       const res = await authService.sendVerifyOTP(email, name);
@@ -394,7 +395,7 @@ export const Register = () => {
               <div className="flex items-center justify-between text-sm pt-1">
                 <button
                   type="button"
-                  onClick={() => { setStep('form'); setError(null); setOtp(['','','','','','']); }}
+                  onClick={() => { setStep('form'); setError(null); setInfo(null); setOtp(['','','','','','']); }}
                   className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-1 transition-colors"
                 >
                   ← Sửa thông tin

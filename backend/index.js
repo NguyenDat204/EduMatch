@@ -2,32 +2,6 @@ const path = require("path");
 const dotenv = require("dotenv");
 dotenv.config({ path: path.resolve(__dirname, ".env") });
 
-// Confirm email config loaded
-console.log('[ENV] EMAIL_USER:', process.env.EMAIL_USER ? process.env.EMAIL_USER.substring(0, 6) + '***' : 'NOT SET');
-console.log('[ENV] EMAIL_PASS:', process.env.EMAIL_PASS ? '***SET***' : 'NOT SET');
-
-// Test SMTP connection on startup
-setTimeout(async () => {
-  if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-    const nodemailer = require('nodemailer');
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-      tls: { rejectUnauthorized: false },
-    });
-    transporter.verify((error) => {
-      if (error) {
-        console.error('[EMAIL] SMTP connection FAILED:', error.message);
-        console.error('[EMAIL] Code:', error.code, '| Response:', error.response);
-      } else {
-        console.log('[EMAIL] SMTP connection OK — Gmail ready to send');
-      }
-    });
-  }
-}, 2000);
-
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -72,12 +46,11 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
   process.exit(1);
 }
 
-// Rate limiters for sensitive endpoints
+// Rate limiters for sensitive endpoints — now managed per-route in authRoutes.js
 const recommendationsLimiter = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false }); // 10 requests/min
-const authLimiter = rateLimit({ windowMs: 60 * 1000, max: 6, standardHeaders: true, legacyHeaders: false }); // 6 requests/min
 
 // Register API Routes
-app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/auth", authRoutes); // Rate limiting handled per-route inside authRoutes.js
 app.use("/api/profile", profileRoutes);
 app.use("/api/careers", careerRoutes);
 app.use("/api/universities", universityRoutes);

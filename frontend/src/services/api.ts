@@ -29,7 +29,14 @@ apiClient.interceptors.response.use(
     if (error?.response?.status === 401) {
       const url: string = error?.config?.url || '';
       // Skip auto-reload for auth endpoints — let the caller handle the error message
-      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/google');
+      const isAuthEndpoint =
+        url.includes('/auth/login') ||
+        url.includes('/auth/register') ||
+        url.includes('/auth/google') ||
+        url.includes('/auth/send-verify-otp') ||
+        url.includes('/auth/verify-email-otp') ||
+        url.includes('/auth/forgot-password') ||
+        url.includes('/auth/reset-password');
       if (!isAuthEndpoint) {
         try { localStorage.removeItem('edumatch_token'); } catch {}
         if (typeof window !== 'undefined') window.location.reload();
