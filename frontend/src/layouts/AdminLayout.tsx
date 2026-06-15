@@ -3,7 +3,7 @@ import { NavLink, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Briefcase, Building2,
   MessageSquare, Settings, LogOut, ChevronLeft, ChevronRight,
-  ShieldCheck, Zap, Menu, X, Bell,
+  ShieldCheck, Zap, Menu, X, Bell, CreditCard,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { icon: Users,           label: 'Người dùng',       path: '/admin/users',        color: 'text-violet-400' },
   { icon: Briefcase,       label: 'Ngành nghề',       path: '/admin/careers',      color: 'text-emerald-400' },
   { icon: Building2,       label: 'Đại học',          path: '/admin/universities', color: 'text-amber-400' },
+  { icon: CreditCard,      label: 'Quản lý gói dịch vụ', path: '/admin/plans',      color: 'text-indigo-400' },
   { icon: MessageSquare,   label: 'Phản hồi',         path: '/admin/feedback',     color: 'text-rose-400' },
   { icon: Settings,        label: 'Cài đặt hệ thống', path: '/admin/settings',     color: 'text-slate-400' },
 ];

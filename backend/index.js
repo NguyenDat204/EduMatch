@@ -22,6 +22,8 @@ const skillGapRoutes = require("./routes/skillGapRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const surveyHistoryRoutes = require("./routes/surveyHistoryRoutes");
 const surveyQuestionRoutes = require("./routes/surveyQuestionRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+const planRoutes = require("./routes/planRoutes");
 
 // Connect to Database
 connectDB().then(() => {
@@ -65,6 +67,8 @@ app.use("/api/recommendations", (req, res, next) => {
 }, recommendationRoutes);
 app.use("/api/analytics/skill-gap", skillGapRoutes);
 app.use("/api/subscription", subscriptionRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api", planRoutes);
 app.use("/api/survey-questions", surveyQuestionRoutes);
 app.use("/api/survey-history", surveyHistoryRoutes);
 

@@ -23,6 +23,8 @@ const Explore = lazy(() => import('../pages/Explore').then(m => ({ default: m.Ex
 const Chat = lazy(() => import('../pages/Chat').then(m => ({ default: m.Chat })));
 const Upgrade = lazy(() => import('../pages/Upgrade').then(m => ({ default: m.Upgrade })));
 const CareerDetails = lazy(() => import('../pages/CareerDetails').then(m => ({ default: m.CareerDetails })));
+const PaymentSuccess = lazy(() => import('../pages/PaymentSuccess').then(m => ({ default: m.PaymentSuccess })));
+const PaymentCancel = lazy(() => import('../pages/PaymentCancel').then(m => ({ default: m.PaymentCancel })));
 const UniversityDetails = lazy(() => import('../pages/UniversityDetails').then(m => ({ default: m.UniversityDetails })));
 const CompareCareer = lazy(() => import('../pages/CompareCareer').then(m => ({ default: m.CompareCareer })));
 const FavoriteCareer = lazy(() => import('../pages/FavoriteCareer').then(m => ({ default: m.FavoriteCareer })));
@@ -41,6 +43,7 @@ const AdminUniversities = lazy(() => import('../pages/admin/Universities').then(
 const AdminAnalytics = lazy(() => import('../pages/admin/Analytics').then(m => ({ default: m.Analytics })));
 const AdminFeedback = lazy(() => import('../pages/admin/Feedback').then(m => ({ default: m.Feedback })));
 const AdminSettings = lazy(() => import('../pages/admin/Settings').then(m => ({ default: m.Settings })));
+const AdminPlans = lazy(() => import('../pages/admin/Plans').then(m => ({ default: m.Plans })));
 
 // ─── Loading Fallback ─────────────────────────────────────────
 const PageLoader = () => (
@@ -75,6 +78,8 @@ export const AppRoutes = () => (
       <Route path="/chat" element={<Chat />} />
       <Route path="/upgrade" element={<Upgrade />} />
       <Route path="/university/manage" element={<ManageUniversity />} />
+      <Route path="/payment/success" element={<PaymentSuccess />} />
+      <Route path="/payment/cancel" element={<PaymentCancel />} />
 
       {/* ── New Exploration Pages ── */}
       <Route path="/compare" element={<CompareCareer />} />
@@ -91,6 +96,7 @@ export const AppRoutes = () => (
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="feedback" element={<AdminFeedback />} />
         <Route path="settings" element={<AdminSettings />} />
+        <Route path="plans" element={<AdminPlans />} />
       </Route>
     </Routes>
   </Suspense>
