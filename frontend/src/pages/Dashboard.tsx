@@ -26,6 +26,13 @@ export const Dashboard = () => {
   const { isAIRunning } = useAIStatus();
   const navigate = useNavigate();
 
+  // Redirect admin to their portal
+  useEffect(() => {
+    if (!isLoading && user && user.role === 'admin') {
+      navigate('/admin', { replace: true });
+    }
+  }, [user, isLoading, navigate]);
+
   const [rating, setRating]                         = useState(5);
   const [message, setMessage]                       = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);

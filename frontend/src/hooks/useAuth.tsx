@@ -6,7 +6,7 @@ interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<any>;
   logout: () => void;
   register: (name: string, email: string, password: string, school?: string, role?: string, grade?: string, majorInterest?: string) => Promise<void>;
-  loginViaGoogle: (token: string) => Promise<void>;
+  loginViaGoogle: (token: string) => Promise<any>;
   updateUserInState: (updatedUser: User) => void;
 }
 
@@ -145,6 +145,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           isAuthenticated: true,
           isLoading: false,
         });
+        // Return user data so callers can redirect based on role
+        return response.data;
       }
     } catch (err: any) {
       setState(s => ({ ...s, isLoading: false }));

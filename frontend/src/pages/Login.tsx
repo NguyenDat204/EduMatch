@@ -56,8 +56,12 @@ export const Login = () => {
     }
     setErrorRef.current(null);
     try {
-      await loginViaGoogleRef.current(response.credential);
-      navigateRef.current('/dashboard');
+      const userData = await loginViaGoogleRef.current(response.credential);
+      if (userData && (userData as any).role === 'admin') {
+        navigateRef.current('/admin');
+      } else {
+        navigateRef.current('/dashboard');
+      }
     } catch (err: any) {
       setErrorRef.current(err.message || 'Đăng nhập Google thất bại.');
     }
