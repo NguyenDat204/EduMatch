@@ -165,10 +165,6 @@ export const Survey = () => {
     setAnswers(newAnswers);
     saveDraft(newAnswers, currentStep);
     setHasDraft(true);
-    if (currentStep < totalSteps - 1) {
-      const next = currentStep + 1;
-      setTimeout(() => { setCurrentStep(next); saveDraft(newAnswers, next); }, 280);
-    }
   };
 
   const handleScale = (value: number) => {
@@ -177,10 +173,6 @@ export const Survey = () => {
     setAnswers(newAnswers);
     saveDraft(newAnswers, currentStep);
     setHasDraft(true);
-    if (currentStep < totalSteps - 1) {
-      const next = currentStep + 1;
-      setTimeout(() => { setCurrentStep(next); saveDraft(newAnswers, next); }, 280);
-    }
   };
 
   const handleStepChange = (newStep: number) => {
