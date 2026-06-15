@@ -44,7 +44,7 @@ const markAsPaid = async (orderCode) => {
     throw new Error(`Payment record not found for orderCode: ${code}`);
   }
 
-  console.log(`[PaymentService] Marking payment ${code} as PAID. Commencing Pro subscription activation for user: ${payment.user_id}`);
+  console.log(`[PaymentService] Marking payment ${code} as PAID at exact time ${new Date().toISOString()}. Commencing Pro subscription activation for user: ${payment.user_id}`);
 
   const userId = payment.user_id;
   const planId = payment.plan_id;

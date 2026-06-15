@@ -91,7 +91,7 @@ export const Upgrade = () => {
 
   // Polling to verify payment status
   useEffect(() => {
-    if (showModal && paymentData && timeLeft > 0 && pollingActive) {
+    if (showModal && paymentData && pollingActive) {
       pollingRef.current = setInterval(async () => {
         try {
           const res = await paymentService.checkStatus(paymentData.orderCode);
@@ -129,7 +129,7 @@ export const Upgrade = () => {
         } catch (err: any) {
           console.warn('Polling error, retrying...', err);
         }
-      }, 1500);
+      }, 500);
     }
 
     return () => {
@@ -138,7 +138,7 @@ export const Upgrade = () => {
         pollingRef.current = null;
       }
     };
-  }, [showModal, paymentData, timeLeft, pollingActive, navigate]);
+  }, [showModal, paymentData, pollingActive, navigate]);
 
   const handleCreatePaymentTransaction = async (plan: SubscriptionPlan) => {
     setError(null);
