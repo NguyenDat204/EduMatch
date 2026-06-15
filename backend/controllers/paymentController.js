@@ -142,9 +142,9 @@ const checkPaymentStatus = async (req, res) => {
       return res.status(200).json({ status: payment.status });
     }
 
-    // ── Anti-spam: chỉ gọi PayOS tối đa mỗi 3 giây ──
+    // ── Anti-spam: chỉ gọi PayOS tối đa mỗi 0.5 giây ──
     const now = new Date();
-    if (payment.last_verified_at && now - new Date(payment.last_verified_at) < 3000) {
+    if (payment.last_verified_at && now - new Date(payment.last_verified_at) < 850) {
       return res.status(200).json({ status: payment.status });
     }
 
@@ -158,22 +158,27 @@ const checkPaymentStatus = async (req, res) => {
     try {
       // @payos/node v2: paymentRequests.get(orderCode: number) → PaymentLink
       paymentInfo = await payos.paymentRequests.get(code);
-      console.log(`[SyncStatus] Order ${code} → PayOS status: ${paymentInfo.status}`);
+      console.log(`[PayOS Status Sync] Queried PayOS for order ${code} at ${new Date().toISOString()}`);
+      console.log(`- PayOS Status: ${paymentInfo.status}`);
+      console.log(`- Raw SDK Response:`, JSON.stringify(paymentInfo, null, 2));
     } catch (payosErr) {
-      console.warn(`[SyncStatus] Could not fetch PayOS status for order ${code}:`, payosErr.message);
+      console.warn(`[PayOS Status Sync] Could not fetch PayOS status for order ${code} at ${new Date().toISOString()}:`, payosErr.message);
       // Trả về trạng thái hiện tại trong DB nếu PayOS không phản hồi
       return res.status(200).json({ status: payment.status });
     }
 
     // ── Xử lý kết quả từ PayOS và đồng bộ DB ──
     if (paymentInfo.status === "PAID") {
+      console.log(`[PayOS Status Sync] Order ${code} verified as PAID. Calling markAsPaid...`);
       payment = await paymentService.markAsPaid(code);
     } else if (paymentInfo.status === "CANCELLED") {
       payment.status = "CANCELLED";
       await payment.save();
+      console.log(`[PayOS Status Sync] Order ${code} verified as CANCELLED. Updated status in database.`);
     } else if (paymentInfo.status === "EXPIRED" || paymentInfo.status === "FAILED") {
       payment.status = "FAILED";
       await payment.save();
+      console.log(`[PayOS Status Sync] Order ${code} verified as FAILED/EXPIRED. Updated status in database.`);
     }
     // Các trạng thái PROCESSING, UNDERPAID → giữ nguyên PENDING để polling tiếp
 
@@ -208,7 +213,8 @@ const handleWebhook = async (req, res) => {
 
     // webhookData là WebhookData trực tiếp (không cần .data)
     const { orderCode, description } = webhookData;
-    console.log(`[Webhook] Verified - OrderCode: ${orderCode}, Description: ${description}`);
+    console.log(`[Webhook] Verified at ${new Date().toISOString()} - OrderCode: ${orderCode}, Description: ${description}`);
+    console.log(`- Raw Webhook Data:`, JSON.stringify(webhookData, null, 2));
 
     await paymentService.markAsPaid(orderCode);
 
