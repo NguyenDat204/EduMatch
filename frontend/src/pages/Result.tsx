@@ -15,6 +15,18 @@ interface IndustryResult {
   insights: string;
 }
 
+const buildRecommendationPayload = (surveyData: any, user: any) => ({
+  answers: surveyData?.answers || surveyData || {},
+  academicInfo: user?.academicInfo || {},
+  skillEvaluation: user?.skillEvaluation || {},
+  favorites: Array.isArray(user?.favorites) ? user.favorites : [],
+  profileContext: {
+    name: user?.name || '',
+    email: user?.email || '',
+    role: user?.role || 'student',
+  },
+});
+
 // Key lưu result vào localStorage theo user để giữ persist khi chuyển tab/thoát
 const RESULT_STORAGE_KEY_BASE = 'edumatch_result_cache';
 const RESULT_SAVED_FINGERPRINT = 'edumatch_result_saved_fp';
@@ -38,6 +50,7 @@ export const Result = () => {
 
   useEffect(() => {
     const fetchRecommendations = async () => {
+      if (authLoading || !user) return;
       if (fetchRef.current) return; // prevent double-fetch (StrictMode / remounts)
       fetchRef.current = true;
 
@@ -82,7 +95,8 @@ export const Result = () => {
       // Báo toàn hệ thống AI đang chạy (cross-tab)
       setAIRunning(true);
       try {
-        const data = await aiApiService.getRecommendations(surveyData);
+        const recommendationPayload = buildRecommendationPayload(surveyData, user);
+        const data = await aiApiService.getRecommendations(recommendationPayload);
         setResult(data);
         // Lưu vào localStorage theo user để giữ persist khi đổi tab/thoát
         try {
@@ -102,7 +116,7 @@ export const Result = () => {
               suitabilityScore: data.suitabilityScore || 0,
               insights: data.insights || '',
               careers: data.careers || [],
-              answers: surveyData.answers || surveyData,
+              answers: recommendationPayload.answers,
               updatedAt: new Date(),
             },
           });
@@ -111,7 +125,7 @@ export const Result = () => {
         // Lưu vào DB (survey history) — but avoid duplicate saves using fingerprint
         try {
           const uid = user?._id || user?.email || 'anon';
-          const fpPayload = { answers: surveyData.answers || surveyData, archetype: data?.archetype };
+          const fpPayload = { answers: recommendationPayload.answers, archetype: data?.archetype };
           const fingerprint = btoa(unescape(encodeURIComponent(JSON.stringify(fpPayload))));
           const existingFp = typeof window !== 'undefined' ? localStorage.getItem(`${RESULT_SAVED_FINGERPRINT}_${uid}`) : null;
           if (existingFp === fingerprint) {
@@ -119,7 +133,7 @@ export const Result = () => {
             setSavedToHistory(true);
             setSavedError(null);
           } else {
-            await surveyHistoryService.save(surveyData.answers || surveyData, data);
+            await surveyHistoryService.save(recommendationPayload.answers, data);
             setSavedToHistory(true);
             setSavedError(null);
             try { localStorage.setItem(`${RESULT_SAVED_FINGERPRINT}_${uid}`, fingerprint); } catch { /* ignore */ }
@@ -148,7 +162,7 @@ export const Result = () => {
     };
 
     fetchRecommendations();
-  }, [location.state]);
+  }, [authLoading, user, location.state, setAIRunning, updateUserInState, navigate]);
 
   const retrySave = async () => {
     if (!result) return;

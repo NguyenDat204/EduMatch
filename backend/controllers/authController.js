@@ -4,6 +4,33 @@ const nodemailer = require("nodemailer");
 const User = require("../models/User");
 const University = require("../models/University");
 
+const AUTH_USER_FIELDS = "name email role avatar isPro subscription academicInfo favorites personalityTest skillEvaluation universityId password";
+
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+
+const buildAuthUserPayload = (user) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  avatar: user.avatar,
+  isPro: user.isPro,
+  subscription: user.subscription,
+  academicInfo: user.academicInfo,
+  favorites: user.favorites,
+  personalityTest: user.personalityTest,
+  skillEvaluation: user.skillEvaluation,
+  universityId: user.universityId,
+});
+
+const sendAuthResponse = (res, user, statusCode = 200) => {
+  res.status(statusCode).json({
+    success: true,
+    data: buildAuthUserPayload(user),
+    token: generateToken(user._id),
+  });
+};
+
 // ==================== EMAIL SERVICE ====================
 const createTransporter = () => {
   // Support Gmail (default) or any SMTP config from env
@@ -110,7 +137,8 @@ const generateToken = (id) => {
 // @access  Public
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, school, grade = '12', majorInterest = '' } = req.body;
+    const { name, password, school, grade = '12', majorInterest = '' } = req.body;
+    const email = normalizeEmail(req.body.email);
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Please provide all required fields" });
@@ -159,24 +187,7 @@ const registerUser = async (req, res) => {
         await user.save();
       }
 
-      res.status(201).json({
-        success: true,
-        data: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          avatar: user.avatar,
-          isPro: user.isPro,
-          subscription: user.subscription,
-          academicInfo: user.academicInfo,
-          favorites: user.favorites,
-          personalityTest: user.personalityTest,
-          skillEvaluation: user.skillEvaluation,
-          universityId: user.universityId,
-        },
-        token: generateToken(user._id),
-      });
+      sendAuthResponse(res, user, 201);
     } else {
       res.status(400).json({ message: "Invalid user data" });
     }
@@ -191,29 +202,17 @@ const registerUser = async (req, res) => {
 // @access  Public
 const authUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = normalizeEmail(req.body.email);
+    const { password } = req.body;
 
-    const user = await User.findOne({ email });
+    if (!email || !password) {
+      return res.status(400).json({ message: "Please provide email and password" });
+    }
+
+    const user = await User.findOne({ email }).select(AUTH_USER_FIELDS);
 
     if (user && (await user.matchPassword(password))) {
-      res.json({
-        success: true,
-        data: {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          avatar: user.avatar,
-          isPro: user.isPro,
-          subscription: user.subscription,
-          academicInfo: user.academicInfo,
-          favorites: user.favorites,
-          personalityTest: user.personalityTest,
-          skillEvaluation: user.skillEvaluation,
-          universityId: user.universityId,
-        },
-        token: generateToken(user._id),
-      });
+      sendAuthResponse(res, user);
     } else {
       res.status(401).json({ message: "Invalid email or password" });
     }
@@ -230,7 +229,7 @@ const googleLogin = async (req, res) => {
   try {
     const { token, email: requestEmail, name: requestName, avatar: requestAvatar } = req.body;
 
-    let email = requestEmail;
+    let email = normalizeEmail(requestEmail);
     let name = requestName;
     let avatar = requestAvatar;
 
@@ -249,7 +248,7 @@ const googleLogin = async (req, res) => {
         return res.status(401).json({ message: "Invalid Google token or unverified email." });
       }
 
-      email = payload.email;
+      email = normalizeEmail(payload.email);
       name = payload.name || email.split("@")[0];
       avatar = payload.picture || avatar;
     }
@@ -258,7 +257,7 @@ const googleLogin = async (req, res) => {
       return res.status(400).json({ message: "Google email is required" });
     }
 
-    let user = await User.findOne({ email });
+    let user = await User.findOne({ email }).select(AUTH_USER_FIELDS);
 
     if (!user) {
       const secureRandomPassword = Math.random().toString(36).slice(-10);
@@ -271,24 +270,7 @@ const googleLogin = async (req, res) => {
       });
     }
 
-    res.json({
-      success: true,
-      data: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatar: user.avatar,
-        isPro: user.isPro,
-        subscription: user.subscription,
-        academicInfo: user.academicInfo,
-        favorites: user.favorites,
-        personalityTest: user.personalityTest,
-        skillEvaluation: user.skillEvaluation,
-        universityId: user.universityId,
-      },
-      token: generateToken(user._id),
-    });
+    sendAuthResponse(res, user);
   } catch (error) {
     console.error("Google Login Error:", error);
     res.status(500).json({ message: "Server error during Google auth", error: error.message });

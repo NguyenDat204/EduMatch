@@ -4,6 +4,30 @@ const crypto = require("crypto");
 const Career = require("../models/Career");
 require("dotenv").config();
 
+const parseListEnv = (value, fallback) => {
+  const items = String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return items.length ? items : fallback;
+};
+
+const GEMINI_MODEL_FALLBACKS = process.env.GEMINI_RECOMMENDATION_MODELS
+  ? parseListEnv(process.env.GEMINI_RECOMMENDATION_MODELS, ["gemini-2.5-flash"])
+  : ["gemini-2.5-flash"];
+const GEMINI_MAX_RETRIES = Number(process.env.GEMINI_MAX_RETRIES || 1);
+const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 10000);
+const AI_RECOMMENDATION_MODE = process.env.AI_RECOMMENDATION_MODE || "balanced"; // balanced | local
+const CAREER_CATALOG_TTL = 5 * 60 * 1000; // 5 minutes
+const MAX_PROMPT_CAREERS = Number(process.env.AI_PROMPT_CAREER_LIMIT || 40);
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const MAX_CACHE_ENTRIES = 500;
+
+let careerCatalogCache = {
+  value: null,
+  timestamp: 0,
+};
+
 let genAI = null;
 if (process.env.GEMINI_API_KEY) {
   try {
@@ -22,7 +46,6 @@ if (process.env.GEMINI_API_KEY) {
 
 // ==================== MEMORY CACHE ====================
 const memoryCache = new Map();
-const CACHE_TTL = 3600000; // 1 hour
 
 const cacheGet = (key) => {
   const cached = memoryCache.get(key);
@@ -35,6 +58,10 @@ const cacheGet = (key) => {
 };
 
 const cacheSet = (key, value) => {
+  if (memoryCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = memoryCache.keys().next().value;
+    if (oldestKey) memoryCache.delete(oldestKey);
+  }
   memoryCache.set(key, { value, timestamp: Date.now() });
 };
 
@@ -42,17 +69,74 @@ const generateCacheKey = (data) => {
   return crypto.createHash("md5").update(JSON.stringify(data)).digest("hex");
 };
 
+const toTrimmedString = (value, fallback = "") => String(value ?? fallback).trim();
+
+const clampNumber = (value, min, max, fallback = min) => {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return fallback;
+  return Math.min(max, Math.max(min, numberValue));
+};
+
+const getAcademicInfo = (userData = {}) => userData.academicProfile || userData.academicInfo || {};
+
+const getSkillScores = (userData = {}) => {
+  const rawScores = userData.skillEvaluation?.scores || userData.skillEvaluation || {};
+  return {
+    analytical: clampNumber(rawScores.analytical, 0, 100, 50),
+    creative: clampNumber(rawScores.creative, 0, 100, 50),
+    communication: clampNumber(rawScores.communication, 0, 100, 50),
+    leadership: clampNumber(rawScores.leadership, 0, 100, 50),
+    technical: clampNumber(rawScores.technical, 0, 100, 50),
+  };
+};
+
+const normalizeKeyword = (value) => toTrimmedString(value).toLowerCase();
+
+const getFavoriteSignals = (userData = {}) =>
+  Array.isArray(userData.favorites)
+    ? userData.favorites.map((favorite) => normalizeKeyword(favorite)).filter(Boolean)
+    : [];
+
+const extractJsonObject = (text) => {
+  const rawText = String(text || "").trim();
+  const fencedMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fencedMatch) return fencedMatch[1].trim();
+
+  const firstBrace = rawText.indexOf("{");
+  const lastBrace = rawText.lastIndexOf("}");
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    return rawText.slice(firstBrace, lastBrace + 1).trim();
+  }
+
+  return rawText;
+};
+
+const withTimeout = (promise, timeoutMs, label = "Operation") => {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+      timeoutMs
+    );
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+};
+
 // ==================== VALIDATION SCHEMAS ====================
 const UserProfileSchema = z.object({
   email: z.string().email().optional(),
   name: z.string().optional(),
+  academicProfile: z.record(z.any()).optional(),
   academicInfo: z.object({
     school: z.string().optional(),
     grade: z.string().optional(),
     majorInterest: z.string().optional(),
-    subjects: z.record(z.number()).optional()
+    subjects: z.record(z.coerce.number()).optional()
   }).optional(),
   skillEvaluation: z.record(z.any()).optional(),
+  favorites: z.array(z.any()).optional(),
+  profileContext: z.record(z.any()).optional(),
   answers: z.record(z.any()).optional(),
   personalityTest: z.object({
     archetype: z.string().optional(),
@@ -84,7 +168,7 @@ const CareerRecommendationResponseSchema = z.object({
 });
 
 // ==================== RETRY LOGIC ====================
-const callGeminiWithRetry = async (apiCall, maxRetries = 3) => {
+const callGeminiWithRetry = async (apiCall, maxRetries = GEMINI_MAX_RETRIES) => {
   let lastErr;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -119,28 +203,41 @@ const estimateCost = (inputTokens, outputTokens) => {
 };
 
 const fetchCareerCatalog = async () => {
-  const careers = await Career.find().lean();
-  return careers.map((career) => ({
+  if (careerCatalogCache.value && Date.now() - careerCatalogCache.timestamp < CAREER_CATALOG_TTL) {
+    return careerCatalogCache.value;
+  }
+
+  const careers = await Career.find()
+    .select("title description salary growth skills suitability category roadmap")
+    .lean();
+  const normalizedCareers = careers.map((career) => ({
     id: career._id?.toString() || null,
-    title: String(career.title || '').trim(),
-    description: String(career.description || '').trim(),
-    salary: String(career.salary || 'Chưa xác định').trim(),
-    growth: String(career.growth || 'Ổn định').trim(),
+    title: toTrimmedString(career.title),
+    description: toTrimmedString(career.description),
+    salary: toTrimmedString(career.salary, 'Chưa xác định'),
+    growth: toTrimmedString(career.growth, 'Ổn định'),
     skills: Array.isArray(career.skills) ? career.skills.map((s) => String(s).trim()).filter(Boolean) : [],
     suitability: Number.isFinite(career.suitability) ? career.suitability : 0,
-    category: String(career.category || '').trim(),
+    category: toTrimmedString(career.category),
     roadmap: Array.isArray(career.roadmap)
       ? career.roadmap.map((step) => ({
-          phase: String(step.phase || '').trim(),
-          title: String(step.title || '').trim(),
-          duration: String(step.duration || '').trim(),
-          description: String(step.description || '').trim(),
+          phase: toTrimmedString(step.phase),
+          title: toTrimmedString(step.title),
+          duration: toTrimmedString(step.duration),
+          description: toTrimmedString(step.description),
           skillsToAcquire: Array.isArray(step.skillsToAcquire)
             ? step.skillsToAcquire.map((skill) => String(skill).trim()).filter(Boolean)
             : []
         }))
       : []
   }));
+
+  careerCatalogCache = {
+    value: normalizedCareers,
+    timestamp: Date.now(),
+  };
+
+  return normalizedCareers;
 };
 
 const buildCareerCatalogContext = (careers) => {
@@ -148,17 +245,23 @@ const buildCareerCatalogContext = (careers) => {
     return "Không có danh sách ngành nghề để tham khảo.";
   }
   return careers
-    .map((career, index) => `${index + 1}. ${career.title} (${career.category}): ${career.description}`)
+    .slice(0, MAX_PROMPT_CAREERS)
+    .map((career, index) => {
+      const skills = Array.isArray(career.skills) && career.skills.length
+        ? ` | skills: ${career.skills.slice(0, 5).join(", ")}`
+        : "";
+      return `${index + 1}. ${career.title} (${career.category})${skills}: ${career.description.slice(0, 220)}`;
+    })
     .join("\n");
 };
 
 const normalizeRoadmapStep = (step) => {
   if (!step || typeof step !== 'object') return null;
   return {
-    phase: String(step.phase || '').trim(),
-    title: String(step.title || '').trim(),
-    duration: String(step.duration || '').trim(),
-    description: String(step.description || '').trim(),
+    phase: toTrimmedString(step.phase),
+    title: toTrimmedString(step.title),
+    duration: toTrimmedString(step.duration),
+    description: toTrimmedString(step.description),
     skillsToAcquire: Array.isArray(step.skillsToAcquire)
       ? step.skillsToAcquire.map((skill) => String(skill).trim()).filter(Boolean)
       : []
@@ -167,7 +270,7 @@ const normalizeRoadmapStep = (step) => {
 
 const normalizeCareerFromAi = (career, careerCatalog) => {
   if (!career || typeof career !== 'object') return null;
-  const title = String(career.title || '').trim();
+  const title = toTrimmedString(career.title);
   if (!title) return null;
 
   const matchingCareer = careerCatalog.find(
@@ -178,15 +281,13 @@ const normalizeCareerFromAi = (career, careerCatalog) => {
 
   return {
     title: matchingCareer.title,
-    description: String(career.description || matchingCareer.description || '').trim(),
-    salary: String(career.salary || matchingCareer.salary || 'Chưa xác định').trim(),
-    growth: String(career.growth || matchingCareer.growth || 'Ổn định').trim(),
+    description: toTrimmedString(career.description || matchingCareer.description),
+    salary: toTrimmedString(career.salary || matchingCareer.salary, 'Chưa xác định'),
+    growth: toTrimmedString(career.growth || matchingCareer.growth, 'Ổn định'),
     skills: Array.isArray(career.skills)
       ? career.skills.map((s) => String(s).trim()).filter(Boolean)
       : matchingCareer.skills,
-    suitability: Number.isFinite(career.suitability)
-      ? career.suitability
-      : matchingCareer.suitability || 0,
+    suitability: clampNumber(career.suitability, 0, 100, matchingCareer.suitability || 0),
     category: matchingCareer.category,
     roadmap: Array.isArray(career.roadmap)
       ? career.roadmap
@@ -212,13 +313,11 @@ const normalizeKnownCareerRecommendations = (aiResult, careerCatalog) => {
   }
 
   return {
-    archetype: String(aiResult.archetype || '').trim(),
-    description: String(aiResult.description || '').trim(),
-    suitabilityScore: Number.isFinite(aiResult.suitabilityScore)
-      ? aiResult.suitabilityScore
-      : 0,
+    archetype: toTrimmedString(aiResult.archetype),
+    description: toTrimmedString(aiResult.description),
+    suitabilityScore: clampNumber(aiResult.suitabilityScore, 0, 100, 0),
     careers: normalizedCareers,
-    insights: String(aiResult.insights || '').trim()
+    insights: toTrimmedString(aiResult.insights)
   };
 };
 
@@ -231,15 +330,16 @@ const retrieveRelevantCareers = async (userData) => {
 // ==================== PROMPT ENGINEERING ====================
 const buildCareerRecommendationPrompt = (userData, careerContext, careerCatalog) => {
   const answers = userData.answers || {};
-  const academic = userData.academicProfile || userData.academicInfo || {};
+  const academic = getAcademicInfo(userData);
+  const skillScores = getSkillScores(userData);
+  const favoriteSignals = getFavoriteSignals(userData);
   const allowedTitles = Array.isArray(careerCatalog)
     ? careerCatalog.map((career) => career.title).join(", ")
     : "";
 
   // Pre-calculate RIASEC scores to feed into prompt
   const normalizeAns = (v) => {
-    const n = Number(v);
-    return Number.isNaN(n) ? 2 : Math.max(0, Math.min(4, Math.round(n)));
+    return clampNumber(Math.round(Number(v)), 0, 4, 2);
   };
   const riasecScores = {
     R: ['q1','q2','q3','q4','q5'].reduce((s,k) => s + normalizeAns(answers[k]), 0),
@@ -271,7 +371,14 @@ Bạn là một chuyên gia hướng nghiệp hàng đầu thế giới với 20
 - Điểm RIASEC: R=${riasecScores.R}, I=${riasecScores.I}, A=${riasecScores.A}, S=${riasecScores.S}, E=${riasecScores.E}, C=${riasecScores.C}
 - Mã Holland: ${hollandCode}
 - Câu trả lời Giai đoạn 2 (ARCS + ngoại cảnh): ${JSON.stringify(phase2Answers)}
-- Thông tin học tập: ${JSON.stringify(academic)}
+- Hồ sơ học tập: ${JSON.stringify({
+    school: academic.school,
+    grade: academic.grade,
+    majorInterest: academic.majorInterest,
+    subjects: academic.subjects || {}
+  })}
+- Hồ sơ kỹ năng tự đánh giá (0-100): ${JSON.stringify(skillScores)}
+- Ngành/nghề đã yêu thích hoặc lưu: ${favoriteSignals.length ? favoriteSignals.join(", ") : "Chưa có"}
 
 **DANH SÁCH NGÀNH NGHỀ CÓ SẴN:**
 ${careerContext}
@@ -282,6 +389,9 @@ ${careerContext}
 3. Không bao gồm markdown, không thêm chú thích ngoài JSON.
 4. Ưu tiên ngành phù hợp với Holland Code "${hollandCode}".
 5. Nếu Phase 2 cho thấy áp lực gia đình mâu thuẫn sở thích, đề cập trong insights.
+6. Dùng điểm môn học để kiểm tra năng lực nền: Toán/Lý/Anh hỗ trợ công nghệ-AI; Văn/Anh hỗ trợ giao tiếp-thiết kế; Sinh/Hóa hỗ trợ y-sinh nếu có ngành liên quan.
+7. Dùng hồ sơ kỹ năng để điều chỉnh độ phù hợp: technical/analytical cho kỹ thuật, creative cho thiết kế, communication/social cho ngành tương tác, leadership cho quản lý.
+8. Nếu ngành yêu thích/favorites mâu thuẫn mạnh với RIASEC hoặc điểm/kỹ năng, không loại bỏ hoàn toàn; hãy giải thích điều kiện cần bù đắp trong insights.
 
 **TÊN NGÀNH ĐƯỢC PHÉP:** ${allowedTitles}
 
@@ -422,18 +532,27 @@ const getCareerRecommendations = async (userData) => {
     // Build advanced prompt
     const prompt = buildCareerRecommendationPrompt(validatedUser, careerContext, promptCareers);
 
-    // Try Gemini if available
-    if (genAI) {
-      const modelNames = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
-
-      for (const modelName of modelNames) {
+    // Try Gemini within a short latency budget. If it is slow, use the local engine.
+    if (genAI && AI_RECOMMENDATION_MODE !== "local") {
+      for (const modelName of GEMINI_MODEL_FALLBACKS) {
         try {
           console.log(`Attempting analysis with model: ${modelName}`);
-          const model = genAI.getGenerativeModel({ model: modelName });
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+              responseMimeType: "application/json",
+              temperature: 0.35,
+              maxOutputTokens: 4096,
+            },
+          });
 
           // Call with retry logic
           const result = await callGeminiWithRetry(async () => {
-            return await model.generateContent(prompt);
+            return await withTimeout(
+              model.generateContent(prompt),
+              GEMINI_TIMEOUT_MS,
+              `Gemini recommendation (${modelName})`
+            );
           });
 
           const response = await result.response;
@@ -441,14 +560,7 @@ const getCareerRecommendations = async (userData) => {
 
           console.log("✓ Gemini response received");
 
-          // Clean markdown blocks if any
-          if (text.includes("```json")) {
-            text = text.split("```json")[1].split("```")[0];
-          } else if (text.includes("```")) {
-            text = text.split("```")[1].split("```")[0];
-          }
-
-          const cleanedText = text.trim();
+          const cleanedText = extractJsonObject(text);
           const parsedResult = JSON.parse(cleanedText);
 
           // Normalize and validate output against known career titles
@@ -474,6 +586,8 @@ const getCareerRecommendations = async (userData) => {
           );
         }
       }
+    } else if (AI_RECOMMENDATION_MODE === "local") {
+      console.log("AI_RECOMMENDATION_MODE=local - skipping Gemini for fast recommendation.");
     }
 
     // DETerMINISTIC RULE-BASED FALLBACK (local recommendation engine)
@@ -485,8 +599,11 @@ const getCareerRecommendations = async (userData) => {
 
   // LOCAL FALLBACK - Intelligent rule-based recommendations
   const answers = userData.answers || {};
-  const academic = userData.academicProfile || userData.academicInfo || {};
-  const schoolSubjects = academic.subjects || {};
+  const academic = getAcademicInfo(userData);
+  const subjects = academic.subjects || {};
+  const skillScores = getSkillScores(userData);
+  const favoriteSignals = getFavoriteSignals(userData);
+  const majorInterest = normalizeKeyword(academic.majorInterest);
   const fallbackCareers = careerCatalog.length ? careerCatalog : PRESETS.careers;
 
   const normalizeAnswer = (value) => {
@@ -494,9 +611,9 @@ const getCareerRecommendations = async (userData) => {
     const lower = raw.toLowerCase();
 
     if (raw === '') return 2;
-    if (!Number.isNaN(Number(raw))) {
+    if (Number.isFinite(Number(raw))) {
       const n = Number(raw);
-      if (n >= 1 && n <= 5) return Math.min(4, Math.max(0, n - 1));
+      if (n >= 1 && n <= 5) return clampNumber(n - 1, 0, 4, 2);
     }
 
     const mapping = {
@@ -567,7 +684,6 @@ const getCareerRecommendations = async (userData) => {
   const prefersStructure = ['quy trình cố định rõ ràng', 'thiên về quy trình'].includes(
     String(answers['q40'] || '').toLowerCase()
   );
-  const prefersData = String(answers['q41'] || '').toLowerCase().includes('dữ liệu');
 
   // Boost Conventional if structured preference
   if (prefersStructure) riasecScores.Conventional += 2;
@@ -593,6 +709,89 @@ const getCareerRecommendations = async (userData) => {
     }
   };
 
+  const getSubjectBonus = (careerCategory) => {
+    const math = clampNumber(subjects.math, 0, 10, 8);
+    const physics = clampNumber(subjects.physics, 0, 10, 8);
+    const english = clampNumber(subjects.english, 0, 10, 8);
+    const literature = clampNumber(subjects.literature, 0, 10, 8);
+    const chemistry = clampNumber(subjects.chemistry, 0, 10, 8);
+    const biology = clampNumber(subjects.biology, 0, 10, 8);
+    const history = clampNumber(subjects.history, 0, 10, 8);
+    const geography = clampNumber(subjects.geography, 0, 10, 8);
+
+    const techBase = (math + physics + english) / 3;
+    const designBase = (literature + english) / 2;
+    const businessBase = (math + english + literature) / 3;
+    const scienceBase = (math + chemistry + biology) / 3;
+    const socialBase = (literature + history + geography + english) / 4;
+
+    const toBonus = (score) => Math.round((score - 7) * 1.5);
+
+    switch (careerCategory) {
+      case 'Công nghệ':
+      case 'Trí tuệ nhân tạo':
+        return toBonus(techBase);
+      case 'Thiết kế':
+        return toBonus(designBase);
+      case 'Quản lý & Kinh doanh':
+        return toBonus(businessBase);
+      case 'Khoa học':
+      case 'Y tế':
+        return toBonus(scienceBase);
+      case 'Xã hội':
+      case 'Giáo dục':
+        return toBonus(socialBase);
+      default:
+        return 0;
+    }
+  };
+
+  const getSkillBonus = (careerCategory) => {
+    const scoreByCategory = {
+      'Công nghệ': skillScores.technical * 0.5 + skillScores.analytical * 0.4 + skillScores.communication * 0.1,
+      'Trí tuệ nhân tạo': skillScores.analytical * 0.55 + skillScores.technical * 0.4 + skillScores.creative * 0.05,
+      'Thiết kế': skillScores.creative * 0.55 + skillScores.communication * 0.25 + skillScores.technical * 0.2,
+      'Quản lý & Kinh doanh': skillScores.leadership * 0.45 + skillScores.communication * 0.35 + skillScores.analytical * 0.2,
+    }[careerCategory] || (
+      skillScores.analytical * 0.25 +
+      skillScores.creative * 0.2 +
+      skillScores.communication * 0.25 +
+      skillScores.leadership * 0.15 +
+      skillScores.technical * 0.15
+    );
+
+    return Math.round((scoreByCategory - 50) / 12);
+  };
+
+  const getPreferenceBonus = (career) => {
+    const title = normalizeKeyword(career.title);
+    const category = normalizeKeyword(career.category);
+    const skillText = Array.isArray(career.skills)
+      ? career.skills.map(normalizeKeyword).join(' ')
+      : '';
+
+    let bonus = 0;
+    if (majorInterest) {
+      const matchesMajorInterest =
+        title.includes(majorInterest) ||
+        majorInterest.includes(title) ||
+        category.includes(majorInterest) ||
+        skillText.includes(majorInterest);
+      if (matchesMajorInterest) bonus += 5;
+    }
+
+    const careerId = normalizeKeyword(career.id || career._id);
+    const matchesFavorite = favoriteSignals.some((favorite) =>
+      favorite === careerId ||
+      favorite === title ||
+      title.includes(favorite) ||
+      favorite.includes(title)
+    );
+    if (matchesFavorite) bonus += 7;
+
+    return bonus;
+  };
+
   const extrasByMBTI = (careerCategory) => {
     let bonus = 0;
     if (careerCategory === 'Công nghệ' && hollandCode.includes('I')) bonus += 3;
@@ -607,7 +806,20 @@ const getCareerRecommendations = async (userData) => {
   const matchedCareers = [...fallbackCareers]
     .map((career) => {
       const boost = categoryBoost(career.category);
-      const suitability = Math.min(99, Math.round(65 + boost * 30 + extrasByMBTI(career.category)));
+      const suitability = Math.min(
+        99,
+        Math.max(
+          45,
+          Math.round(
+            65 +
+            boost * 30 +
+            extrasByMBTI(career.category) +
+            getSubjectBonus(career.category) +
+            getSkillBonus(career.category) +
+            getPreferenceBonus(career)
+          )
+        )
+      );
       return { ...career, suitability };
     })
     .sort((a, b) => b.suitability - a.suitability);
@@ -627,17 +839,23 @@ const getCareerRecommendations = async (userData) => {
   const archetypeLabel = getArchetypeLabel();
   const archetype = `${archetypeLabel} (${hollandCode})`;
   const description = `Mã Holland của bạn là **${hollandCode}** — phản ánh khuynh hướng ${archetypeLabel.toLowerCase()}. Ba nhóm tính cách nổi trội nhất của bạn là ${sortedRIASEC.slice(0,3).map(([k,v]) => `${k} (${v}đ)`).join(', ')}. Sự kết hợp này định hình phong cách làm việc và môi trường phù hợp nhất với bạn.`;
-  const insights = `Dựa trên mã Holland **${hollandCode}**, bạn nên ưu tiên các ngành nghề phù hợp với nhóm ${topCategory}. Điểm động lực ARCS của bạn cho thấy ${arcsScores.confidence >= 2 ? 'bạn khá tự tin' : 'bạn cần củng cố thêm niềm tin'} vào năng lực bản thân. Hãy tiếp tục rèn luyện thực hành và xây dựng portfolio để tăng cơ hội phát triển.`;
+  const favoriteInsight = majorInterest || favoriteSignals.length
+    ? ` Mình cũng đã cân nhắc ngành bạn quan tâm/lưu trong hồ sơ để không bỏ qua định hướng cá nhân.`
+    : '';
+  const insights = `Dựa trên mã Holland **${hollandCode}**, bạn nên ưu tiên các ngành nghề phù hợp với nhóm ${topCategory}. Điểm động lực ARCS của bạn cho thấy ${arcsScores.confidence >= 2 ? 'bạn khá tự tin' : 'bạn cần củng cố thêm niềm tin'} vào năng lực bản thân.${favoriteInsight} Hồ sơ điểm số và kỹ năng tự đánh giá được dùng để điều chỉnh độ phù hợp, vì vậy hãy cập nhật chúng thường xuyên để kết quả chính xác hơn.`;
 
   const result = {
     archetype,
     description,
-    suitabilityScore: Math.max(82, Math.round(matchedCareers[0]?.suitability || 82)),
+    suitabilityScore: clampNumber(Math.max(82, Math.round(matchedCareers[0]?.suitability || 82)), 0, 100, 82),
     careers: matchedCareers,
     insights,
   };
 
-  const cacheKey = generateCacheKey(userData);
+  const cacheKey = generateCacheKey({
+    ...userData,
+    titles: fallbackCareers.map((career) => career.title)
+  });
   cacheSet(cacheKey, result);
 
   return result;
@@ -677,6 +895,16 @@ const getChatResponse = async (chatHistory, userProfile) => {
   `
       : "Thông tin: Không có";
 
+    const normalizedHistory = Array.isArray(chatHistory)
+      ? chatHistory
+          .slice(-5)
+          .map((message) => ({
+            role: message?.role === "ai" || message?.role === "assistant" ? "assistant" : "user",
+            content: toTrimmedString(message?.content).slice(0, 2000)
+          }))
+          .filter((message) => message.content)
+      : [];
+
     const chatPrompt = `
 Bạn là "EduMatch AI Advisor" - chuyên gia tư vấn hướng nghiệp cho học sinh cấp 3 Việt Nam.
 
@@ -690,8 +918,7 @@ Bạn là "EduMatch AI Advisor" - chuyên gia tư vấn hướng nghiệp cho h�
 ${profileContext}
 
 **LỊCH SỬ CUỘC HỘI THOẠI:**
-${chatHistory
-  .slice(-5)
+${normalizedHistory
   .map(h => `${h.role === "user" ? "Học sinh" : "AI Advisor"}: ${h.content}`)
   .join("\n")}
 

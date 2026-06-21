@@ -2,6 +2,29 @@ const aiService = require("../services/aiService");
 const User = require("../models/User");
 const ChatHistory = require("../models/ChatHistory");
 
+const MAX_CHAT_MESSAGES = 30;
+const MAX_MESSAGE_LENGTH = 3000;
+
+const sanitizeMessageContent = (content) =>
+  String(content || "")
+    .replace(/<[^>]*>/g, "")
+    .trim()
+    .slice(0, MAX_MESSAGE_LENGTH);
+
+const normalizeChatMessage = (message) => {
+  if (!message || typeof message !== "object") return null;
+
+  const role = message.role === "ai" || message.role === "assistant" ? "assistant" : "user";
+  const content = sanitizeMessageContent(message.content);
+  if (!content) return null;
+
+  return {
+    role,
+    content,
+    timestamp: message.timestamp || new Date(),
+  };
+};
+
 // @desc    Load persisted chat history for current user
 // @route   GET /api/chat/history
 // @access  Private
@@ -41,25 +64,27 @@ const getChatAdvisorResponse = async (req, res) => {
       return res.status(400).json({ message: "Chat history is required" });
     }
 
+    const storableMessages = chatHistory
+      .slice(-MAX_CHAT_MESSAGES)
+      .map(normalizeChatMessage)
+      .filter(Boolean);
+
+    if (storableMessages.length === 0 || storableMessages[storableMessages.length - 1].role !== "user") {
+      return res.status(400).json({ message: "Chat history must include a valid latest user message" });
+    }
+
     // Load full user profile for personalized context
     const user = await User.findById(req.user._id).select("-password");
 
-    const aiResponse = await aiService.getChatResponse(chatHistory, user);
+    const aiResponse = await aiService.getChatResponse(storableMessages, user);
 
     // ── Persist conversation ──────────────────────────────────────
     const convId = conversationId || `conv_${req.user._id}_${Date.now()}`;
 
-    // Map frontend "ai" role → "assistant" for storage
-    const storableMessages = chatHistory.map((m) => ({
-      role: m.role === "ai" ? "assistant" : m.role,
-      content: m.content,
-      timestamp: m.timestamp || new Date(),
-    }));
-
     // Append the new AI reply
     storableMessages.push({
       role: "assistant",
-      content: aiResponse,
+      content: sanitizeMessageContent(aiResponse),
       timestamp: new Date(),
     });
 

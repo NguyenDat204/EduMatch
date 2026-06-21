@@ -2,6 +2,9 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from '
 import type { User, AuthState } from '../types';
 import { authService, profileService } from '../services/api';
 
+const TOKEN_STORAGE_KEY = 'edumatch_token';
+const USER_STORAGE_KEY = 'edumatch_user';
+
 interface AuthContextType extends AuthState {
   login: (email: string, password: string) => Promise<any>;
   logout: () => void;
@@ -28,18 +31,41 @@ const isTokenExpired = (token: string): boolean => {
   return Date.now() / 1000 > payload.exp;
 };
 
+const getCachedUser = (): User | null => {
+  try {
+    const rawUser = localStorage.getItem(USER_STORAGE_KEY);
+    return rawUser ? JSON.parse(rawUser) : null;
+  } catch {
+    return null;
+  }
+};
+
+const persistSession = (token: string, user: User) => {
+  localStorage.setItem(TOKEN_STORAGE_KEY, token);
+  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+};
+
+const clearSession = () => {
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
+  localStorage.removeItem(USER_STORAGE_KEY);
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const cachedToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+  const cachedUser = cachedToken ? getCachedUser() : null;
+
   const [state, setState] = useState<AuthState>({
-    user: null,
-    token: localStorage.getItem('edumatch_token'),
-    isAuthenticated: false,
-    isLoading: true,
+    user: cachedUser,
+    token: cachedToken,
+    isAuthenticated: Boolean(cachedToken && cachedUser && !isTokenExpired(cachedToken)),
+    isLoading: Boolean(cachedToken && !cachedUser),
   });
 
   // Verify and fetch profile on startup if token exists
   useEffect(() => {
     const initAuth = async () => {
-      const token = localStorage.getItem('edumatch_token');
+      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      const cachedUser = token ? getCachedUser() : null;
 
       // No token → not authenticated, done immediately (no network call)
       if (!token) {
@@ -49,24 +75,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Token is expired locally → clean up without hitting the network
       if (isTokenExpired(token)) {
-        localStorage.removeItem('edumatch_token');
+        clearSession();
         setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
         return;
       }
 
-      // Token looks valid — fetch fresh profile in the background.
-      // We set isLoading: false immediately using the cached user stub from the
-      // JWT payload so the UI is never blocked waiting for the network.
-      const payload = decodeJwtPayload(token);
-      if (payload?.id) {
-        // Optimistically mark as authenticated so protected pages render instantly.
-        // The full user object will be merged in once getProfile resolves.
-        setState(s => ({ ...s, isAuthenticated: true, isLoading: false }));
+      // Token looks valid. Use cached user immediately, then refresh in background.
+      if (cachedUser) {
+        setState({ user: cachedUser, token, isAuthenticated: true, isLoading: false });
+      } else {
+        setState(s => ({ ...s, token, isAuthenticated: true, isLoading: true }));
       }
 
       try {
         const response = await profileService.getProfile();
         if (response.success && response.data) {
+          persistSession(token, response.data);
           setState({
             user: response.data,
             token,
@@ -74,12 +98,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             isLoading: false,
           });
         } else {
-          localStorage.removeItem('edumatch_token');
+          clearSession();
           setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
         }
       } catch {
         // Token invalid (expired, wrong secret, etc.) — clear and redirect to login
-        localStorage.removeItem('edumatch_token');
+        clearSession();
         setState({ user: null, token: null, isAuthenticated: false, isLoading: false });
       }
     };
@@ -92,7 +116,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await authService.login(email, password);
       if (response.success && response.data && response.token) {
-        localStorage.setItem('edumatch_token', response.token);
+        persistSession(response.token, response.data);
         setState({
           user: response.data,
           token: response.token,
@@ -117,7 +141,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await authService.register(name, email, password, school, role, grade, majorInterest);
       if (response.success && response.data && response.token) {
-        localStorage.setItem('edumatch_token', response.token);
+        persistSession(response.token, response.data);
         setState({
           user: response.data,
           token: response.token,
@@ -138,7 +162,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await authService.loginViaGoogle(token);
       if (response.success && response.data && response.token) {
-        localStorage.setItem('edumatch_token', response.token);
+        persistSession(response.token, response.data);
         setState({
           user: response.data,
           token: response.token,
@@ -155,7 +179,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('edumatch_token');
+    clearSession();
     setState({
       user: null,
       token: null,
@@ -165,6 +189,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateUserInState = (updatedUser: User) => {
+    try {
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser));
+    } catch {
+      // Ignore storage quota/private-mode failures; in-memory state still updates.
+    }
     setState(s => ({ ...s, user: updatedUser }));
   };
 
