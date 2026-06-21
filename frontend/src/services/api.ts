@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { Career, University, User, Question, ApiResponse } from '../types';
+import type { Career, University, User, Question, ApiResponse, SubscriptionPlan, DashboardMetrics } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://edumatch-hfg8.onrender.com/api';
 
@@ -305,3 +305,64 @@ export const adminService = {
     return response.data;
   },
 };
+
+// ─── PAYMENT SERVICES ────────────────────────────────────────
+export interface PaymentCreateResponse {
+  orderCode: number;
+  amount: number;
+  status: string;
+  checkoutUrl: string;
+  qrCode: string;
+  expiredAt: string;
+}
+
+export interface PaymentStatusResponse {
+  status: string;
+}
+
+export const paymentService = {
+  createPayment: async (planId: string): Promise<PaymentCreateResponse> => {
+    const response = await apiClient.post('/payments/create', { planId });
+    return response.data;
+  },
+  checkStatus: async (orderCode: number | string): Promise<PaymentStatusResponse> => {
+    const response = await apiClient.get(`/payments/${orderCode}`);
+    return response.data;
+  },
+};
+
+// ─── SUBSCRIPTION PLAN SERVICES ─────────────────────────────
+export const planService = {
+  getActivePlans: async (): Promise<ApiResponse<SubscriptionPlan[]>> => {
+    const response = await apiClient.get('/plans');
+    return response.data;
+  },
+};
+
+export const adminPlanService = {
+  getPlans: async (): Promise<ApiResponse<SubscriptionPlan[]>> => {
+    const response = await apiClient.get('/admin/plans');
+    return response.data;
+  },
+  getPlanById: async (id: string): Promise<ApiResponse<SubscriptionPlan>> => {
+    const response = await apiClient.get(`/admin/plans/${id}`);
+    return response.data;
+  },
+  createPlan: async (data: Partial<SubscriptionPlan>): Promise<ApiResponse<SubscriptionPlan>> => {
+    const response = await apiClient.post('/admin/plans', data);
+    return response.data;
+  },
+  updatePlan: async (id: string, data: Partial<SubscriptionPlan>): Promise<ApiResponse<SubscriptionPlan>> => {
+    const response = await apiClient.put(`/admin/plans/${id}`, data);
+    return response.data;
+  },
+  deletePlan: async (id: string): Promise<ApiResponse<void>> => {
+    const response = await apiClient.delete(`/admin/plans/${id}`);
+    return response.data;
+  },
+  getDashboard: async (): Promise<ApiResponse<DashboardMetrics>> => {
+    const response = await apiClient.get('/admin/plans/dashboard');
+    return response.data;
+  },
+};
+

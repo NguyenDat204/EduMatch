@@ -68,6 +68,9 @@ export interface User {
     endDate?: string;
     status: string;
   };
+  plan_id?: string;
+  plan_started_at?: string;
+  plan_expired_at?: string;
   academicInfo?: {
     school: string;
     grade: string;
@@ -120,4 +123,38 @@ export interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+}
+
+
+export interface SubscriptionPlan {
+  _id: string;
+  id?: string;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
+  duration_days: number;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DashboardMetrics {
+  totalRevenue: number;
+  successfulTxCount: number;
+  proUsersCount: number;
+  bestSellingPlans: {
+    plan_id: string | null;
+    name: string;
+    slug: string;
+    salesCount: number;
+    totalRevenue: number;
+  }[];
+  monthlyRevenue: {
+    year: number;
+    month: number;
+    monthStr: string;
+    revenue: number;
+    count: number;
+  }[];
 }

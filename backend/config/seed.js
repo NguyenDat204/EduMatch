@@ -4,6 +4,7 @@ const Career = require("../models/Career");
 const University = require("../models/University");
 const Article = require("../models/Article");
 const SurveyQuestion = require("../models/SurveyQuestion");
+const SubscriptionPlan = require("../models/SubscriptionPlan");
 
 const seedDatabase = async () => {
   try {
@@ -607,6 +608,21 @@ const seedDatabase = async () => {
       }
 
       console.log("Default users seeded successfully.");
+    }
+
+    // Seed default subscription plans if missing
+    const planCount = await SubscriptionPlan.countDocuments();
+    if (planCount === 0) {
+      console.log("Seeding default subscription plans...");
+      await SubscriptionPlan.create({
+        name: "Pro Hướng nghiệp",
+        slug: "pro",
+        description: "Truy cập đầy đủ tính năng: Chat không giới hạn, lộ trình học tập chi tiết, phân tích khoảng cách kỹ năng nâng cao.",
+        price: 49000,
+        duration_days: 30,
+        is_active: true
+      });
+      console.log("Default subscription plans seeded successfully.");
     }
   } catch (error) {
     console.error("Seeding Error:", error.message);

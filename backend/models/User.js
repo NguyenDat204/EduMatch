@@ -42,6 +42,16 @@ const UserSchema = new mongoose.Schema(
       endDate: { type: Date },
       status: { type: String, default: "none" }
     },
+    plan_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "SubscriptionPlan",
+    },
+    plan_started_at: {
+      type: Date,
+    },
+    plan_expired_at: {
+      type: Date,
+    },
     resetPasswordOTP: { type: String },
     resetPasswordOTPExpires: { type: Date },
     academicInfo: {
