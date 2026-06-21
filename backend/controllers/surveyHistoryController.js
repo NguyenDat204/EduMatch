@@ -19,6 +19,26 @@ const saveSurveyResult = async (req, res) => {
         title: sanitizeText(c.title || c.name || '' , 200),
         id: c.id || c._id || null,
         description: sanitizeText(c.description || c.summary || '', 500),
+        salary: sanitizeText(c.salary || 'Chưa xác định', 100),
+        growth: sanitizeText(c.growth || 'Ổn định', 100),
+        skills: Array.isArray(c.skills)
+          ? c.skills.map((skill) => sanitizeText(skill, 80)).filter(Boolean)
+          : [],
+        suitability: Number.isFinite(c.suitability) ? c.suitability : 0,
+        category: sanitizeText(c.category || '', 100),
+        roadmap: Array.isArray(c.roadmap)
+          ? c.roadmap
+              .map((step) => ({
+                phase: sanitizeText(step.phase || '', 100),
+                title: sanitizeText(step.title || '', 100),
+                duration: sanitizeText(step.duration || '', 100),
+                description: sanitizeText(step.description || '', 300),
+                skillsToAcquire: Array.isArray(step.skillsToAcquire)
+                  ? step.skillsToAcquire.map((skill) => sanitizeText(skill, 80)).filter(Boolean)
+                  : [],
+              }))
+              .filter((step) => step.title && step.description)
+          : [],
       };
     };
 

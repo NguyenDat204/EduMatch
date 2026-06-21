@@ -24,6 +24,22 @@ export const CareerDetails = () => {
   const [isSaved, setIsSaved] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
 
+  const getCachedCareer = (title?: string) => {
+    if (!title || !user) return null;
+    const uid = user?._id || user?.email || 'anon';
+    const cachedRaw = localStorage.getItem(`edumatch_result_cache_${uid}`);
+    if (!cachedRaw) return null;
+
+    try {
+      const cached = JSON.parse(cachedRaw);
+      return (cached.careers || []).find(
+        (c: any) => c.title?.toLowerCase() === title.toLowerCase()
+      ) || null;
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     const fetchCareer = async () => {
       if (!id) return;
@@ -32,7 +48,12 @@ export const CareerDetails = () => {
         if (!id.startsWith('title:')) {
           const response = await careerService.getCareerById(id);
           if (response.success && response.data) {
-            setCareer(response.data);
+            const cachedCareer = getCachedCareer(response.data.title);
+            setCareer(
+              cachedCareer
+                ? { ...response.data, ...cachedCareer, _id: response.data._id, hasPersonalizedSuitability: true }
+                : { ...response.data, suitability: undefined, hasPersonalizedSuitability: false }
+            );
             if (user?.favorites) {
               const hasFavorite = (response.data._id && user.favorites.includes(response.data._id)) || user.favorites.includes(response.data.title);
               setIsSaved(!!hasFavorite);
@@ -54,7 +75,12 @@ export const CareerDetails = () => {
               (c: any) => c.title?.toLowerCase() === titleParam.toLowerCase()
             );
             if (matched) {
-              setCareer(matched);
+              const cachedCareer = getCachedCareer(matched.title);
+              setCareer(
+                cachedCareer
+                  ? { ...matched, ...cachedCareer, _id: matched._id, hasPersonalizedSuitability: true }
+                  : { ...matched, suitability: undefined, hasPersonalizedSuitability: false }
+              );
               if (user?.favorites) {
                 const hasFavorite = (matched._id && user.favorites.includes(matched._id)) || user.favorites.includes(matched.title);
                 setIsSaved(!!hasFavorite);
@@ -75,7 +101,7 @@ export const CareerDetails = () => {
               (c: any) => c.title?.toLowerCase() === titleParam.toLowerCase()
             );
             if (aiCareer) {
-              setCareer({ ...aiCareer, _id: null });
+              setCareer({ ...aiCareer, _id: null, hasPersonalizedSuitability: true });
               setLoading(false);
               return;
             }
@@ -164,10 +190,12 @@ export const CareerDetails = () => {
             </div>
 
             <div className="flex flex-row md:flex-col items-center gap-3 shrink-0">
-              <div className="p-5 bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800/40 rounded-2xl text-center min-w-[120px]">
-                <div className="text-3xl font-black text-primary-600">{career.suitability || 90}%</div>
-                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Độ tương thích</div>
-              </div>
+              {career.hasPersonalizedSuitability && Number.isFinite(Number(career.suitability)) && Number(career.suitability) > 0 && (
+                <div className="p-5 bg-primary-50 dark:bg-primary-900/20 border border-primary-100 dark:border-primary-800/40 rounded-2xl text-center min-w-[120px]">
+                  <div className="text-3xl font-black text-primary-600">{Math.round(Number(career.suitability))}%</div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-1">Độ tương thích</div>
+                </div>
+              )}
 
               <button
                 onClick={handleToggleFavorite}

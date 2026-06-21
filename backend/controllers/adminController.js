@@ -7,6 +7,36 @@ const SurveyHistory = require("../models/SurveyHistory");
 const SystemSettings = require("../models/SystemSettings");
 const UserInteraction = require("../models/UserInteraction");
 
+const CAREER_CATEGORY_ANALYTICS_LIMIT = 8;
+
+const buildDateRange = (days = 14) => {
+  const dates = [];
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (days - 1));
+
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    dates.push({
+      date: d,
+      key: d.toISOString().slice(0, 10),
+      label: `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
+    });
+  }
+
+  return dates;
+};
+
+const fillDailySeries = (range, rows, valueKey = "count") => {
+  const valuesByDate = new Map(rows.map((row) => [row._id, row[valueKey] || 0]));
+  return range.map((item) => ({
+    date: item.key,
+    label: item.label,
+    value: valuesByDate.get(item.key) || 0,
+  }));
+};
+
 // @desc    Get all users (Admin only)
 // @route   GET /api/admin/users
 // @access  Private/Admin
@@ -69,39 +99,188 @@ const deleteUser = async (req, res) => {
 // @access  Private/Admin
 const getSystemAnalytics = async (req, res) => {
   try {
-    const userCount = await User.countDocuments();
-    const studentCount = await User.countDocuments({ role: "student" });
-    const adminCount = await User.countDocuments({ role: "admin" });
-    const careerCount = await Career.countDocuments();
-    const universityCount = await University.countDocuments();
-    const articleCount = await Article.countDocuments();
-    const feedbackCount = await Feedback.countDocuments();
+    const range = buildDateRange(14);
+    const fromDate = range[0].date;
 
-    // Average feedback rating
-    const ratingAggregate = await Feedback.aggregate([
-      {
-        $group: {
-          _id: null,
-          averageRating: { $avg: "$rating" }
+    const [
+      userCount,
+      studentCount,
+      adminCount,
+      universityRoleCount,
+      proCount,
+      careerCount,
+      universityCount,
+      articleCount,
+      feedbackCount,
+      surveyCount,
+      ratingAggregate,
+      roleDistribution,
+      userGrowthRows,
+      surveyTrendRows,
+      feedbackTrendRows,
+      ratingDistribution,
+      careerCategoryDistribution,
+      careerCategoryRecommendations,
+      topRecommendedCareers,
+      recentSignups,
+      recentFeedbacks,
+      recentSurveys,
+    ] = await Promise.all([
+      User.countDocuments(),
+      User.countDocuments({ role: "student" }),
+      User.countDocuments({ role: "admin" }),
+      User.countDocuments({ role: "university" }),
+      User.countDocuments({ isPro: true }),
+      Career.countDocuments(),
+      University.countDocuments(),
+      Article.countDocuments(),
+      Feedback.countDocuments(),
+      SurveyHistory.countDocuments(),
+      Feedback.aggregate([
+        {
+          $group: {
+            _id: null,
+            averageRating: { $avg: "$rating" }
+          }
         }
-      }
+      ]),
+      User.aggregate([
+        { $group: { _id: "$role", count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
+      ]),
+      User.aggregate([
+        { $match: { createdAt: { $gte: fromDate } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      SurveyHistory.aggregate([
+        { $match: { completedAt: { $gte: fromDate } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$completedAt" } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      Feedback.aggregate([
+        { $match: { createdAt: { $gte: fromDate } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      Feedback.aggregate([
+        { $group: { _id: "$rating", count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      Career.aggregate([
+        { $group: { _id: "$category", count: { $sum: 1 } } },
+        { $sort: { count: -1, _id: 1 } },
+        { $limit: CAREER_CATEGORY_ANALYTICS_LIMIT }
+      ]),
+      SurveyHistory.aggregate([
+        { $unwind: "$result.careers" },
+        {
+          $lookup: {
+            from: "careers",
+            localField: "result.careers.title",
+            foreignField: "title",
+            as: "matchedCareer"
+          }
+        },
+        { $unwind: { path: "$matchedCareer", preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            resolvedCategory: {
+              $ifNull: [
+                {
+                  $cond: [
+                    { $eq: ["$result.careers.category", ""] },
+                    null,
+                    "$result.careers.category"
+                  ]
+                },
+                "$matchedCareer.category"
+              ]
+            },
+            resolvedSuitability: {
+              $ifNull: ["$result.careers.suitability", "$result.suitabilityScore"]
+            }
+          }
+        },
+        {
+          $match: {
+            resolvedCategory: { $exists: true, $ne: "" }
+          }
+        },
+        {
+          $group: {
+            _id: "$resolvedCategory",
+            count: { $sum: 1 },
+            avgSuitability: { $avg: "$resolvedSuitability" },
+          }
+        },
+        { $sort: { count: -1, _id: 1 } }
+      ]),
+      SurveyHistory.aggregate([
+        { $unwind: "$result.careers" },
+        {
+          $lookup: {
+            from: "careers",
+            localField: "result.careers.title",
+            foreignField: "title",
+            as: "matchedCareer"
+          }
+        },
+        { $unwind: { path: "$matchedCareer", preserveNullAndEmptyArrays: true } },
+        {
+          $addFields: {
+            resolvedTitle: {
+              $ifNull: ["$result.careers.title", "$matchedCareer.title"]
+            },
+            resolvedCategory: {
+              $ifNull: [
+                {
+                  $cond: [
+                    { $eq: ["$result.careers.category", ""] },
+                    null,
+                    "$result.careers.category"
+                  ]
+                },
+                "$matchedCareer.category"
+              ]
+            },
+            resolvedSuitability: {
+              $ifNull: ["$result.careers.suitability", "$result.suitabilityScore"]
+            }
+          }
+        },
+        {
+          $match: {
+            resolvedTitle: { $exists: true, $ne: "" }
+          }
+        },
+        {
+          $group: {
+            _id: "$resolvedTitle",
+            count: { $sum: 1 },
+            avgSuitability: { $avg: "$resolvedSuitability" },
+            category: { $first: "$resolvedCategory" }
+          }
+        },
+        { $sort: { count: -1, avgSuitability: -1 } },
+        { $limit: 8 }
+      ]),
+      User.find()
+        .select("name email role createdAt academicInfo isPro")
+        .sort({ createdAt: -1 })
+        .limit(5),
+      Feedback.find()
+        .populate("userId", "name email role academicInfo")
+        .sort({ createdAt: -1 })
+        .limit(5),
+      SurveyHistory.find()
+        .populate("userId", "name email academicInfo")
+        .sort({ completedAt: -1 })
+        .limit(5),
     ]);
+
     const averageRating = ratingAggregate.length > 0 ? Number(ratingAggregate[0].averageRating.toFixed(1)) : 5.0;
-
-    // Growth rates and sample metrics for dashboard presentation
-    const recentSignups = await User.find()
-      .select("name email role createdAt academicInfo")
-      .sort({ createdAt: -1 })
-      .limit(5);
-
-    const recentFeedbacks = await Feedback.find()
-      .sort({ createdAt: -1 })
-      .limit(5);
-
-    const recentSurveys = await SurveyHistory.find()
-      .populate("userId", "name email academicInfo")
-      .sort({ completedAt: -1 })
-      .limit(5);
+    const completedSurveyUserCount = await SurveyHistory.distinct("userId");
 
     res.json({
       success: true,
@@ -110,12 +289,46 @@ const getSystemAnalytics = async (req, res) => {
           users: userCount,
           students: studentCount,
           admins: adminCount,
+          universityUsers: universityRoleCount,
+          proUsers: proCount,
           careers: careerCount,
           universities: universityCount,
           articles: articleCount,
           feedbacks: feedbackCount,
+          surveys: surveyCount,
         },
         averageRating,
+        completionRate: userCount ? Math.round((completedSurveyUserCount.length / userCount) * 100) : 0,
+        distributions: {
+          roles: roleDistribution.map((row) => ({ label: row._id || "unknown", value: row.count })),
+          ratings: [1, 2, 3, 4, 5].map((rating) => ({
+            label: `${rating} sao`,
+            value: ratingDistribution.find((row) => row._id === rating)?.count || 0,
+          })),
+          careerCategories: careerCategoryDistribution.map((row) => {
+            const recommendationStats = careerCategoryRecommendations.find(
+              (item) => (item._id || "") === (row._id || "")
+            );
+            const recommendationCount = recommendationStats?.count || 0;
+            return {
+              label: row._id || "Chưa phân loại",
+              value: row.count,
+              recommendationCount,
+              avgSuitability: recommendationCount ? Math.round(recommendationStats.avgSuitability || 0) : null,
+            };
+          }),
+        },
+        trends: {
+          users: fillDailySeries(range, userGrowthRows),
+          surveys: fillDailySeries(range, surveyTrendRows),
+          feedbacks: fillDailySeries(range, feedbackTrendRows),
+        },
+        topRecommendedCareers: topRecommendedCareers.map((row) => ({
+          title: row._id || "Không rõ",
+          count: row.count,
+          avgSuitability: Math.round(row.avgSuitability || 0),
+          category: row.category || "",
+        })),
         recentSignups,
         recentFeedbacks,
         recentSurveys,

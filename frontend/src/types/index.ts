@@ -18,7 +18,7 @@ export interface Career {
   salary: string;
   growth: string;
   skills: string[];
-  suitability: number;
+  suitability?: number;
   category: string;
   roadmap?: CareerRoadmapStep[];
 }

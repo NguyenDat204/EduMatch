@@ -4,14 +4,16 @@ import type { Career } from '../../types';
 
 interface CareerCardProps {
   career: Career;
+  showSuitability?: boolean;
 }
 
-export const CareerCard: React.FC<CareerCardProps> = ({ career }) => {
+export const CareerCard: React.FC<CareerCardProps> = ({ career, showSuitability = true }) => {
   const navigate = useNavigate();
   const skills = Array.isArray(career.skills) ? career.skills : [];
   const salary = career.salary || 'Chưa xác định';
   const growth = career.growth || 'Ổn định';
-  const suitability = Number.isFinite(career.suitability) ? career.suitability : 0;
+  const suitability = Number(career.suitability);
+  const shouldShowSuitability = showSuitability && Number.isFinite(suitability) && suitability > 0;
 
   return (
     <div className="group bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl p-5 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-card-hover transition-all duration-200 flex flex-col shadow-card">
@@ -20,9 +22,11 @@ export const CareerCard: React.FC<CareerCardProps> = ({ career }) => {
         <div className="w-10 h-10 bg-primary-50 dark:bg-primary-900/30 rounded-lg flex items-center justify-center shrink-0">
           <Briefcase size={18} className="text-primary-600" />
         </div>
-        <span className="text-xs font-semibold text-primary-600 bg-primary-50 dark:bg-primary-900/30 px-2.5 py-1 rounded-full whitespace-nowrap">
-          {suitability}% phù hợp
-        </span>
+        {shouldShowSuitability && (
+          <span className="text-xs font-semibold text-primary-600 bg-primary-50 dark:bg-primary-900/30 px-2.5 py-1 rounded-full whitespace-nowrap">
+            {Math.round(suitability)}% phù hợp
+          </span>
+        )}
       </div>
 
       {/* Title — fixed 2-line height */}

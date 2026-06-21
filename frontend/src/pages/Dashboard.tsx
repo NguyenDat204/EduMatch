@@ -319,7 +319,7 @@ export const Dashboard = () => {
                     salary:      career.salary || '$100k - $120k',
                     growth:      career.growth || 'Ổn định (+10%)',
                     skills:      career.skills || [],
-                    suitability: career.suitability || 85,
+                    suitability: Number.isFinite(Number(career.suitability)) ? Number(career.suitability) : undefined,
                     category:    career.category || 'Công nghệ',
                     roadmap:     Array.isArray(career.roadmap) ? career.roadmap : [],
                   }}

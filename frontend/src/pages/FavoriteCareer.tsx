@@ -55,6 +55,7 @@ export const FavoriteCareer = () => {
                   suitability: career.suitability,
                   category: career.category,
                 }} 
+                showSuitability={false}
               />
             ))}
           </div>

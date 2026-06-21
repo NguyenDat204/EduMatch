@@ -90,7 +90,12 @@ const getSkillScores = (userData = {}) => {
   };
 };
 
-const normalizeKeyword = (value) => toTrimmedString(value).toLowerCase();
+const normalizeKeyword = (value) =>
+  toTrimmedString(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d");
 
 const getFavoriteSignals = (userData = {}) =>
   Array.isArray(userData.favorites)
@@ -146,6 +151,7 @@ const UserProfileSchema = z.object({
 
 const CareerRecommendationResponseSchema = z.object({
   archetype: z.string(),
+  hollandCode: z.string().optional(),
   description: z.string(),
   suitabilityScore: z.number().min(0).max(100),
   careers: z.array(z.object({
@@ -314,10 +320,226 @@ const normalizeKnownCareerRecommendations = (aiResult, careerCatalog) => {
 
   return {
     archetype: toTrimmedString(aiResult.archetype),
+    hollandCode: toTrimmedString(aiResult.hollandCode),
     description: toTrimmedString(aiResult.description),
     suitabilityScore: clampNumber(aiResult.suitabilityScore, 0, 100, 0),
     careers: normalizedCareers,
     insights: toTrimmedString(aiResult.insights)
+  };
+};
+
+const getCareerFamily = (category = "") => {
+  const normalized = normalizeKeyword(category);
+  if (
+    normalized.includes("cong nghe") ||
+    normalized.includes("tri tue") ||
+    normalized.includes("dien tu") ||
+    normalized.includes("vien thong") ||
+    normalized.includes("tu dong") ||
+    normalized.includes("ban dan") ||
+    normalized.includes("hang hai")
+  ) {
+    return "technical";
+  }
+  if (
+    normalized.includes("kinh te") ||
+    normalized.includes("kinh doanh") ||
+    normalized.includes("quan ly") ||
+    normalized.includes("du lich")
+  ) {
+    return "business";
+  }
+  if (
+    normalized.includes("y te") ||
+    normalized.includes("sinh hoc") ||
+    normalized.includes("thuc pham") ||
+    normalized.includes("nong lam") ||
+    normalized.includes("khoa hoc")
+  ) {
+    return "science";
+  }
+  if (
+    normalized.includes("giao duc") ||
+    normalized.includes("xa hoi") ||
+    normalized.includes("luat") ||
+    normalized.includes("van hoa") ||
+    normalized.includes("lich su") ||
+    normalized.includes("ngon ngu")
+  ) {
+    return "social";
+  }
+  if (normalized.includes("thiet ke") || normalized.includes("nghe thuat")) {
+    return "creative";
+  }
+  return normalized || "unknown";
+};
+
+const assertCoherentRecommendationSet = (result) => {
+  const topCareers = Array.isArray(result?.careers) ? result.careers.slice(0, 5) : [];
+  if (topCareers.length < 4) return;
+
+  const familyCounts = topCareers.reduce((counts, career) => {
+    const family = getCareerFamily(career.category);
+    counts.set(family, (counts.get(family) || 0) + 1);
+    return counts;
+  }, new Map());
+  const sortedCounts = [...familyCounts.values()].sort((a, b) => b - a);
+  const dominantCoverage = (sortedCounts[0] || 0) + (sortedCounts[1] || 0);
+
+  if (familyCounts.size > 3 && dominantCoverage < 4) {
+    throw new Error("AI recommendations are too scattered across unrelated career families");
+  }
+};
+
+const normalizeSurveyAnswer = (value) => {
+  const raw = String(value ?? '').trim();
+  const lower = normalizeKeyword(raw);
+
+  if (raw === '') return 2;
+  if (Number.isFinite(Number(raw))) {
+    const n = Number(raw);
+    if (n >= 1 && n <= 5) return clampNumber(n - 1, 0, 4, 2);
+    if (n >= 0 && n <= 4) return clampNumber(n, 0, 4, 2);
+  }
+
+  const mapping = {
+    'khong thich': 0,
+    'khong quan tam': 0,
+    'khong phu hop': 0,
+    'khong tu tin': 0,
+    'khong': 0,
+    'hiem khi': 1,
+    'khong qua quan tam': 1,
+    'thinh thoang': 2,
+    'binh thuong': 2,
+    'tuong doi tu tin': 2,
+    'co the': 2,
+    'ca hai': 2,
+    'yeu thich': 4,
+    'rat thich': 4,
+    'rat yeu thich': 4,
+    'rat tu tin': 4,
+    'rat thuong xuyen': 4,
+    'rat phu hop': 4,
+    'logic va phan tich': 4,
+    'chi tiet ro rang': 4,
+  };
+
+  return mapping[lower] ?? 2;
+};
+
+const getRiasecScoresFromAnswers = (answers = {}) => {
+  const getSumScore = (keys) => keys.reduce((sum, id) => sum + normalizeSurveyAnswer(answers[id]), 0);
+  return {
+    Realistic: getSumScore(['q1', 'q2', 'q3', 'q4', 'q5']),
+    Investigative: getSumScore(['q6', 'q7', 'q8', 'q9', 'q10']),
+    Artistic: getSumScore(['q11', 'q12', 'q13', 'q14', 'q15']),
+    Social: getSumScore(['q16', 'q17', 'q18', 'q19', 'q20']),
+    Enterprising: getSumScore(['q21', 'q22', 'q23', 'q24', 'q25']),
+    Conventional: getSumScore(['q26', 'q27', 'q28', 'q29', 'q30']),
+  };
+};
+
+const scoreCareerForProfile = (career, userData = {}) => {
+  const answers = userData.answers || {};
+  const academic = getAcademicInfo(userData);
+  const subjects = academic.subjects || {};
+  const skillScores = getSkillScores(userData);
+  const favoriteSignals = getFavoriteSignals(userData);
+  const majorInterest = normalizeKeyword(academic.majorInterest);
+  const riasecScores = getRiasecScoresFromAnswers(answers);
+
+  if (['quy trinh co dinh ro rang', 'thien ve quy trinh'].includes(normalizeKeyword(answers.q40))) {
+    riasecScores.Conventional += 2;
+  }
+
+  const sortedRIASEC = Object.entries(riasecScores).sort((a, b) => b[1] - a[1]);
+  const hollandCode = sortedRIASEC.slice(0, 3).map(([letter]) => letter[0]).join('');
+  const normalizeScore = (value) => Math.max(0, Math.min(1, value / 20));
+  const r = normalizeScore(riasecScores.Realistic);
+  const i = normalizeScore(riasecScores.Investigative);
+  const a = normalizeScore(riasecScores.Artistic);
+  const s = normalizeScore(riasecScores.Social);
+  const e = normalizeScore(riasecScores.Enterprising);
+  const c = normalizeScore(riasecScores.Conventional);
+  const category = normalizeKeyword(career.category);
+  const title = normalizeKeyword(career.title);
+  const skillText = Array.isArray(career.skills) ? career.skills.map(normalizeKeyword).join(' ') : '';
+  const text = `${category} ${title} ${skillText}`;
+
+  let affinity = 0.18;
+  if (text.includes('cong nghe') || text.includes('phan mem')) affinity = r * 0.25 + i * 0.45 + c * 0.2 + a * 0.1;
+  else if (text.includes('tri tue') || text.includes('ai') || text.includes('du lieu')) affinity = i * 0.6 + r * 0.2 + c * 0.15 + a * 0.05;
+  else if (text.includes('dien') || text.includes('vien thong') || text.includes('tu dong') || text.includes('ban dan') || text.includes('oto') || text.includes('hang khong') || text.includes('dong tau')) affinity = r * 0.45 + i * 0.35 + c * 0.15 + e * 0.05;
+  else if (text.includes('thiet ke') || text.includes('nghe thuat')) affinity = a * 0.6 + s * 0.2 + i * 0.1 + r * 0.1;
+  else if (text.includes('kinh te') || text.includes('kinh doanh') || text.includes('quan ly') || text.includes('marketing') || text.includes('du lich')) affinity = e * 0.5 + s * 0.25 + c * 0.15 + a * 0.1;
+  else if (text.includes('luat')) affinity = e * 0.35 + c * 0.3 + s * 0.2 + i * 0.15;
+  else if (text.includes('y te') || text.includes('bac si') || text.includes('sinh hoc') || text.includes('thuc pham') || text.includes('nong lam')) affinity = i * 0.45 + s * 0.25 + r * 0.2 + c * 0.1;
+  else if (text.includes('giao duc') || text.includes('su pham') || text.includes('xa hoi')) affinity = s * 0.55 + a * 0.2 + e * 0.15 + c * 0.1;
+  else if (text.includes('van hoa') || text.includes('lich su') || text.includes('ngon ngu')) affinity = a * 0.4 + s * 0.25 + i * 0.2 + c * 0.15;
+
+  const math = clampNumber(subjects.math, 0, 10, 8);
+  const physics = clampNumber(subjects.physics, 0, 10, 8);
+  const english = clampNumber(subjects.english, 0, 10, 8);
+  const literature = clampNumber(subjects.literature, 0, 10, 8);
+  const chemistry = clampNumber(subjects.chemistry, 0, 10, 8);
+  const biology = clampNumber(subjects.biology, 0, 10, 8);
+  const toSubjectBonus = (score) => Math.round((score - 7) * 1.2);
+  let subjectBonus = 0;
+  if (text.includes('cong nghe') || text.includes('ai') || text.includes('dien')) subjectBonus = toSubjectBonus((math + physics + english) / 3);
+  else if (text.includes('y te') || text.includes('sinh hoc') || text.includes('thuc pham')) subjectBonus = toSubjectBonus((math + chemistry + biology) / 3);
+  else if (text.includes('giao duc') || text.includes('luat') || text.includes('ngon ngu')) subjectBonus = toSubjectBonus((literature + english) / 2);
+  else if (text.includes('kinh te') || text.includes('kinh doanh')) subjectBonus = toSubjectBonus((math + english + literature) / 3);
+
+  let skillBonus = 0;
+  if (text.includes('cong nghe') || text.includes('ai') || text.includes('dien')) {
+    skillBonus = Math.round(((skillScores.technical * 0.5 + skillScores.analytical * 0.4 + skillScores.communication * 0.1) - 50) / 14);
+  } else if (text.includes('thiet ke') || text.includes('nghe thuat')) {
+    skillBonus = Math.round(((skillScores.creative * 0.55 + skillScores.communication * 0.25 + skillScores.technical * 0.2) - 50) / 14);
+  } else if (text.includes('kinh te') || text.includes('quan ly') || text.includes('marketing')) {
+    skillBonus = Math.round(((skillScores.leadership * 0.45 + skillScores.communication * 0.35 + skillScores.analytical * 0.2) - 50) / 14);
+  } else {
+    skillBonus = Math.round(((skillScores.analytical + skillScores.creative + skillScores.communication) / 3 - 50) / 16);
+  }
+
+  const preferenceBonus = majorInterest && (title.includes(majorInterest) || category.includes(majorInterest) || skillText.includes(majorInterest))
+    ? 4
+    : 0;
+  const favoriteBonus = favoriteSignals.some((favorite) => title.includes(favorite) || favorite.includes(title)) ? 5 : 0;
+
+  return {
+    score: clampNumber(Math.round(42 + affinity * 42 + subjectBonus + skillBonus + preferenceBonus + favoriteBonus), 30, 97, 30),
+    hollandCode,
+  };
+};
+
+const rerankRecommendationsByProfile = (result, userData, careerCatalog) => {
+  if (!Array.isArray(careerCatalog) || careerCatalog.length === 0) return result;
+
+  const aiCareersByTitle = new Map(
+    (Array.isArray(result.careers) ? result.careers : []).map((career) => [normalizeKeyword(career.title), career])
+  );
+  const scoredCareers = careerCatalog
+    .map((career) => {
+      const { score } = scoreCareerForProfile(career, userData);
+      const aiCareer = aiCareersByTitle.get(normalizeKeyword(career.title));
+      return {
+        ...career,
+        ...(aiCareer || {}),
+        title: career.title,
+        category: career.category,
+        suitability: score,
+        roadmap: Array.isArray(aiCareer?.roadmap) && aiCareer.roadmap.length ? aiCareer.roadmap : career.roadmap,
+      };
+    })
+    .sort((a, b) => b.suitability - a.suitability)
+    .slice(0, 5);
+
+  return {
+    ...result,
+    hollandCode: result.hollandCode || scoreCareerForProfile(scoredCareers[0], userData).hollandCode,
+    suitabilityScore: scoredCareers[0]?.suitability || result.suitabilityScore,
+    careers: scoredCareers,
   };
 };
 
@@ -392,6 +614,8 @@ ${careerContext}
 6. Dùng điểm môn học để kiểm tra năng lực nền: Toán/Lý/Anh hỗ trợ công nghệ-AI; Văn/Anh hỗ trợ giao tiếp-thiết kế; Sinh/Hóa hỗ trợ y-sinh nếu có ngành liên quan.
 7. Dùng hồ sơ kỹ năng để điều chỉnh độ phù hợp: technical/analytical cho kỹ thuật, creative cho thiết kế, communication/social cho ngành tương tác, leadership cho quản lý.
 8. Nếu ngành yêu thích/favorites mâu thuẫn mạnh với RIASEC hoặc điểm/kỹ năng, không loại bỏ hoàn toàn; hãy giải thích điều kiện cần bù đắp trong insights.
+9. Chấm suitability theo thang rộng 35-96. Chỉ ngành rất khớp mới trên 85; ngành liên quan vừa phải 65-80; ngành lệch rõ ràng 35-60. Không cho nhiều ngành không liên quan cùng nằm sát nhau ở mức cao.
+10. Top 5 ngành phải có logic nghề nghiệp nhất quán: ưu tiên 1-2 cụm lĩnh vực gần nhau. Tránh trộn công nghệ, kinh doanh, y khoa, sư phạm, luật trong cùng một kết quả nếu Holland Code không ủng hộ rõ ràng.
 
 **TÊN NGÀNH ĐƯỢC PHÉP:** ${allowedTitles}
 
@@ -400,7 +624,7 @@ ${careerContext}
   "archetype": "Tên hình mẫu dựa trên Holland Code (ví dụ: Nhà Phân Tích Logic — IRE)",
   "hollandCode": "${hollandCode}",
   "description": "Mô tả 2-3 câu về điểm mạnh dựa trên RIASEC",
-  "suitabilityScore": 85,
+  "suitabilityScore": 78,
   "careers": [
     {
       "title": "Tên nghề (phải có trong danh sách được phép)",
@@ -408,7 +632,7 @@ ${careerContext}
       "salary": "Mức lương",
       "growth": "Tiềm năng phát triển",
       "skills": ["Skill 1", "Skill 2"],
-      "suitability": 90,
+      "suitability": 82,
       "category": "Lĩnh vực",
       "roadmap": [
         {
@@ -565,7 +789,10 @@ const getCareerRecommendations = async (userData) => {
 
           // Normalize and validate output against known career titles
           const normalizedResult = normalizeKnownCareerRecommendations(parsedResult, promptCareers);
-          const validatedResult = CareerRecommendationResponseSchema.parse(normalizedResult);
+          assertCoherentRecommendationSet(normalizedResult);
+          const rerankedResult = rerankRecommendationsByProfile(normalizedResult, validatedUser, promptCareers);
+          assertCoherentRecommendationSet(rerankedResult);
+          const validatedResult = CareerRecommendationResponseSchema.parse(rerankedResult);
 
           // Cache result
           cacheSet(cacheKey, validatedResult);
@@ -695,17 +922,56 @@ const getCareerRecommendations = async (userData) => {
 
   const categoryBoost = (careerCategory) => {
     const normalize = (value) => Math.max(0, Math.min(1, value / 20)); // max 5 câu × 4 điểm = 20
+    const r = normalize(riasecScores.Realistic);
+    const i = normalize(riasecScores.Investigative);
+    const a = normalize(riasecScores.Artistic);
+    const s = normalize(riasecScores.Social);
+    const e = normalize(riasecScores.Enterprising);
+    const c = normalize(riasecScores.Conventional);
+    const category = normalizeKeyword(careerCategory);
+
+    if (category.includes('cong nghe') || category.includes('phan mem')) {
+      return r * 0.25 + i * 0.45 + c * 0.2 + a * 0.1;
+    }
+    if (category.includes('tri tue nhan tao') || category.includes('ai') || category.includes('khoa hoc du lieu')) {
+      return i * 0.6 + r * 0.2 + c * 0.15 + a * 0.05;
+    }
+    if (category.includes('dien tu') || category.includes('vien thong') || category.includes('tu dong') || category.includes('ban dan')) {
+      return r * 0.45 + i * 0.35 + c * 0.15 + e * 0.05;
+    }
+    if (category.includes('thiet ke') || category.includes('nghe thuat')) {
+      return a * 0.6 + s * 0.2 + i * 0.1 + r * 0.1;
+    }
+    if (category.includes('kinh te') || category.includes('kinh doanh') || category.includes('quan ly') || category.includes('du lich')) {
+      return e * 0.5 + s * 0.25 + c * 0.15 + a * 0.1;
+    }
+    if (category.includes('luat')) {
+      return e * 0.35 + c * 0.3 + s * 0.2 + i * 0.15;
+    }
+    if (category.includes('y te') || category.includes('sinh hoc') || category.includes('thuc pham') || category.includes('nong lam')) {
+      return i * 0.45 + s * 0.25 + r * 0.2 + c * 0.1;
+    }
+    if (category.includes('giao duc') || category.includes('xa hoi')) {
+      return s * 0.55 + a * 0.2 + e * 0.15 + c * 0.1;
+    }
+    if (category.includes('van hoa') || category.includes('lich su') || category.includes('ngon ngu')) {
+      return a * 0.4 + s * 0.25 + i * 0.2 + c * 0.15;
+    }
+    if (category.includes('hang hai')) {
+      return r * 0.45 + c * 0.25 + i * 0.2 + e * 0.1;
+    }
+
     switch (careerCategory) {
       case 'Công nghệ':
-        return normalize(riasecScores.Realistic) * 0.4 + normalize(riasecScores.Investigative) * 0.4 + normalize(riasecScores.Conventional) * 0.2;
+        return r * 0.4 + i * 0.4 + c * 0.2;
       case 'Trí tuệ nhân tạo':
-        return normalize(riasecScores.Investigative) * 0.55 + normalize(riasecScores.Realistic) * 0.3 + normalize(riasecScores.Conventional) * 0.15;
+        return i * 0.55 + r * 0.3 + c * 0.15;
       case 'Thiết kế':
-        return normalize(riasecScores.Artistic) * 0.6 + normalize(riasecScores.Social) * 0.25 + normalize(riasecScores.Realistic) * 0.15;
+        return a * 0.6 + s * 0.25 + r * 0.15;
       case 'Quản lý & Kinh doanh':
-        return normalize(riasecScores.Enterprising) * 0.55 + normalize(riasecScores.Social) * 0.3 + normalize(riasecScores.Conventional) * 0.15;
+        return e * 0.55 + s * 0.3 + c * 0.15;
       default:
-        return 0.5;
+        return 0.18;
     }
   };
 
@@ -794,12 +1060,12 @@ const getCareerRecommendations = async (userData) => {
 
   const extrasByMBTI = (careerCategory) => {
     let bonus = 0;
-    if (careerCategory === 'Công nghệ' && hollandCode.includes('I')) bonus += 3;
-    if (careerCategory === 'Trí tuệ nhân tạo' && hollandCode.startsWith('I')) bonus += 4;
-    if (careerCategory === 'Thiết kế' && hollandCode.includes('A')) bonus += 3;
-    if (careerCategory === 'Quản lý & Kinh doanh' && hollandCode.includes('E')) bonus += 3;
-    // ARCS motivation bonus (normalized: 0-4 extra points)
-    bonus += Math.round(motivationBonus / 4);
+    const category = normalizeKeyword(careerCategory);
+    if ((category.includes('cong nghe') || category.includes('ai')) && hollandCode.includes('I')) bonus += 2;
+    if ((category.includes('thiet ke') || category.includes('nghe thuat')) && hollandCode.includes('A')) bonus += 2;
+    if ((category.includes('kinh te') || category.includes('quan ly')) && hollandCode.includes('E')) bonus += 2;
+    if ((category.includes('giao duc') || category.includes('y te')) && hollandCode.includes('S')) bonus += 2;
+    bonus += Math.round(motivationBonus / 6);
     return bonus;
   };
 
@@ -807,12 +1073,12 @@ const getCareerRecommendations = async (userData) => {
     .map((career) => {
       const boost = categoryBoost(career.category);
       const suitability = Math.min(
-        99,
+        97,
         Math.max(
-          45,
+          30,
           Math.round(
-            65 +
-            boost * 30 +
+            42 +
+            boost * 42 +
             extrasByMBTI(career.category) +
             getSubjectBonus(career.category) +
             getSkillBonus(career.category) +
@@ -846,8 +1112,9 @@ const getCareerRecommendations = async (userData) => {
 
   const result = {
     archetype,
+    hollandCode,
     description,
-    suitabilityScore: clampNumber(Math.max(82, Math.round(matchedCareers[0]?.suitability || 82)), 0, 100, 82),
+    suitabilityScore: clampNumber(Math.round(matchedCareers[0]?.suitability || 0), 0, 100, 0),
     careers: matchedCareers,
     insights,
   };
