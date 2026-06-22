@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Star, Trash2, Loader2, Sparkles, MessageSquare, TrendingUp, Users,
   Eye, Search, X, Mail, Calendar, User, Filter, AlertCircle,
+  Download,
 } from 'lucide-react';
 import { adminService } from '../../services/api';
 
@@ -22,6 +23,13 @@ const Stars = ({ rating, size = 14 }: { rating: number; size?: number }) => (
     ))}
   </div>
 );
+
+const escapeHtml = (value: any) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
 
 export const Feedback = () => {
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
@@ -77,6 +85,70 @@ export const Feedback = () => {
     });
   }, [feedbacks, query, ratingFilter]);
 
+  const handleExportExcel = () => {
+    const rows = filteredFeedbacks.map((fb, index) => ({
+      stt: index + 1,
+      name: fb.name || 'Ẩn danh',
+      email: fb.email || '',
+      rating: fb.rating || 5,
+      message: fb.message || '',
+      createdAt: formatDate(fb.createdAt),
+    }));
+
+    const html = `
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <style>
+            table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+            th { background: #2563eb; color: #ffffff; font-weight: 700; }
+            th, td { border: 1px solid #dbe3ef; padding: 8px; vertical-align: top; }
+            td.message { white-space: pre-wrap; }
+            td.text { mso-number-format: "\\@"; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Người gửi</th>
+                <th>Email</th>
+                <th>Rating</th>
+                <th>Nội dung phản hồi</th>
+                <th>Thời gian gửi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((row) => `
+                <tr>
+                  <td>${row.stt}</td>
+                  <td>${escapeHtml(row.name)}</td>
+                  <td>${escapeHtml(row.email)}</td>
+                  <td class="text">${row.rating} sao</td>
+                  <td class="message">${escapeHtml(row.message)}</td>
+                  <td>${escapeHtml(row.createdAt)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const today = new Date();
+    const stamp = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    link.href = url;
+    link.download = `edumatch-feedback-${stamp}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const totalCount = feedbacks.length;
   const avgRating = totalCount > 0
     ? (feedbacks.reduce((sum, fb) => sum + (fb.rating || 5), 0) / totalCount).toFixed(1)
@@ -91,13 +163,23 @@ export const Feedback = () => {
           <h1 className="text-2xl font-bold mb-1 text-slate-900 dark:text-white">Phản hồi người dùng</h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm">Theo dõi cảm nhận, vấn đề và góp ý trực tiếp từ người dùng.</p>
         </div>
-        <button
-          onClick={fetchFeedbacks}
-          disabled={loading}
-          className="px-4 py-2 rounded-lg bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:border-primary-300 transition-colors"
-        >
-          Làm mới
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+          <button
+            onClick={handleExportExcel}
+            disabled={loading || filteredFeedbacks.length === 0}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors disabled:opacity-50"
+          >
+            <Download size={15} />
+            Xuất Excel
+          </button>
+          <button
+            onClick={fetchFeedbacks}
+            disabled={loading}
+            className="px-4 py-2 rounded-lg bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:border-primary-300 transition-colors"
+          >
+            Làm mới
+          </button>
+        </div>
       </div>
 
       {error && (

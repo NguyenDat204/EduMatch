@@ -3,7 +3,8 @@ import { NavLink, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Briefcase, Building2,
   MessageSquare, Settings, LogOut, ChevronLeft, ChevronRight,
-  ShieldCheck, Zap, Menu, X, Bell, CreditCard,
+  ShieldCheck, Zap, Menu, X, Bell, CreditCard, FileText,
+  Gauge, Bot,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -11,9 +12,13 @@ import { useAuth } from '../hooks/useAuth';
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: 'Tổng quan',       path: '/admin/analytics',    color: 'text-sky-400' },
   { icon: Users,           label: 'Người dùng',       path: '/admin/users',        color: 'text-violet-400' },
+  { icon: FileText,        label: 'Khảo sát',         path: '/admin/surveys',      color: 'text-teal-400' },
+  { icon: Gauge,           label: 'AI Quality',       path: '/admin/ai-quality',   color: 'text-amber-400' },
+  { icon: Bot,             label: 'AI Chat',          path: '/admin/ai-chats',     color: 'text-indigo-400' },
   { icon: Briefcase,       label: 'Ngành nghề',       path: '/admin/careers',      color: 'text-emerald-400' },
   { icon: Building2,       label: 'Đại học',          path: '/admin/universities', color: 'text-amber-400' },
   { icon: CreditCard,      label: 'Quản lý gói dịch vụ', path: '/admin/plans',      color: 'text-indigo-400' },
+  { icon: CreditCard,      label: 'Thanh toán',       path: '/admin/payments',     color: 'text-emerald-400' },
   { icon: MessageSquare,   label: 'Phản hồi',         path: '/admin/feedback',     color: 'text-rose-400' },
   { icon: Settings,        label: 'Cài đặt hệ thống', path: '/admin/settings',     color: 'text-slate-400' },
 ];

@@ -17,7 +17,7 @@ const SystemSettingsSchema = new mongoose.Schema(
     },
     aiModel: {
       type: String,
-      default: "gemini-1.5-flash",
+      default: "gemini-2.5-flash",
       trim: true,
     },
     maxChatHistory: {
@@ -30,7 +30,7 @@ const SystemSettingsSchema = new mongoose.Schema(
     },
     systemPromptTemplate: {
       type: String,
-      default: "Bạn là một trợ lý AI hướng nghiệp thông minh và tận tâm của EduMatch. Nhiệm vụ của bạn là hỗ trợ học sinh khám phá bản thân, định hướng ngành nghề dựa trên kết quả trắc nghiệm và thông tin học tập của các em. Hãy trả lời ngắn gọn, súc tích, động viên và đưa ra những lời khuyên hữu ích, mang tính giáo dục cao.",
+      default: "",
     }
   },
   { timestamps: true }

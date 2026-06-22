@@ -71,11 +71,17 @@ const UserSchema = new mongoose.Schema(
     },
     personalityTest: {
       archetype: { type: String, default: "" },
+      hollandCode: { type: String, default: "" },
       description: { type: String, default: "" },
       suitabilityScore: { type: Number, default: 0 },
       insights: { type: String, default: "" },
+      riasecScores: { type: Map, of: Number, default: {} },
+      scoreBreakdown: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} },
+      confidence: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} },
+      method: { type: String, default: "" },
+      surveyThreshold: { type: Number, default: 70 },
       careers: { type: Array, default: [] },
-      answers: { type: Map, of: String, default: {} },
+      answers: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} },
       updatedAt: { type: Date }
     },
     skillEvaluation: {

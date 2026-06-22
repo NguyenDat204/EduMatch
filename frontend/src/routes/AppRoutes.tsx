@@ -22,6 +22,7 @@ const Profile = lazy(() => import('../pages/Profile').then(m => ({ default: m.Pr
 const Explore = lazy(() => import('../pages/Explore').then(m => ({ default: m.Explore })));
 const Chat = lazy(() => import('../pages/Chat').then(m => ({ default: m.Chat })));
 const Upgrade = lazy(() => import('../pages/Upgrade').then(m => ({ default: m.Upgrade })));
+const Feedback = lazy(() => import('../pages/Feedback').then(m => ({ default: m.Feedback })));
 const CareerDetails = lazy(() => import('../pages/CareerDetails').then(m => ({ default: m.CareerDetails })));
 const PaymentSuccess = lazy(() => import('../pages/PaymentSuccess').then(m => ({ default: m.PaymentSuccess })));
 const PaymentCancel = lazy(() => import('../pages/PaymentCancel').then(m => ({ default: m.PaymentCancel })));
@@ -44,6 +45,10 @@ const AdminAnalytics = lazy(() => import('../pages/admin/Analytics').then(m => (
 const AdminFeedback = lazy(() => import('../pages/admin/Feedback').then(m => ({ default: m.Feedback })));
 const AdminSettings = lazy(() => import('../pages/admin/Settings').then(m => ({ default: m.Settings })));
 const AdminPlans = lazy(() => import('../pages/admin/Plans').then(m => ({ default: m.Plans })));
+const AdminSurveys = lazy(() => import('../pages/admin/Surveys').then(m => ({ default: m.Surveys })));
+const AdminAIQuality = lazy(() => import('../pages/admin/AIQuality').then(m => ({ default: m.AIQuality })));
+const AdminPayments = lazy(() => import('../pages/admin/Payments').then(m => ({ default: m.Payments })));
+const AdminAIChats = lazy(() => import('../pages/admin/AIChats').then(m => ({ default: m.AIChats })));
 
 // ─── Loading Fallback ─────────────────────────────────────────
 const PageLoader = () => (
@@ -76,6 +81,7 @@ export const AppRoutes = () => (
       <Route path="/universities" element={<Explore />} />
       <Route path="/universities/:id" element={<UniversityDetails />} />
       <Route path="/chat" element={<Chat />} />
+      <Route path="/feedback" element={<Feedback />} />
       <Route path="/upgrade" element={<Upgrade />} />
       <Route path="/university/manage" element={<ManageUniversity />} />
       <Route path="/payment/success" element={<PaymentSuccess />} />
@@ -94,6 +100,10 @@ export const AppRoutes = () => (
         <Route path="careers" element={<AdminCareers />} />
         <Route path="universities" element={<AdminUniversities />} />
         <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="surveys" element={<AdminSurveys />} />
+        <Route path="ai-quality" element={<AdminAIQuality />} />
+        <Route path="payments" element={<AdminPayments />} />
+        <Route path="ai-chats" element={<AdminAIChats />} />
         <Route path="feedback" element={<AdminFeedback />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="plans" element={<AdminPlans />} />

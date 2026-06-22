@@ -21,6 +21,7 @@ export interface Career {
   suitability?: number;
   category: string;
   roadmap?: CareerRoadmapStep[];
+  scoreBreakdown?: Record<string, number>;
 }
 
 export interface University {
@@ -89,9 +90,21 @@ export interface User {
   };
   personalityTest?: {
     archetype?: string;
+    hollandCode?: string;
     description?: string;
     suitabilityScore?: number;
     insights?: string;
+    riasecScores?: Record<string, number>;
+    scoreBreakdown?: Record<string, number>;
+    confidence?: {
+      level?: string;
+      label?: string;
+      score?: number;
+      scoreGap?: number;
+      answeredCount?: number;
+      reasons?: string[];
+    };
+    method?: string;
     careers?: any[];
     answers?: any;
     updatedAt?: string | Date;

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { GraduationCap, Facebook, Mail, Phone } from 'lucide-react';
+import { Facebook, Mail, Phone } from 'lucide-react';
 
 export const Footer = () => {
   return (
@@ -9,13 +9,11 @@ export const Footer = () => {
           {/* Brand */}
           <div>
             <Link to="/" className="flex items-center gap-2.5 mb-4">
-              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                <GraduationCap size={18} className="text-white" />
-              </div>
+              <img src="/edumatch_logo.jpg" alt="EduMatch" className="w-8 h-8 rounded-lg object-cover" />
               <span className="text-lg font-bold text-white">EduMatch</span>
             </Link>
             <p className="text-sm leading-relaxed text-slate-500">
-              Nền tảng định hướng nghề nghiệp cá nhân hóa bằng AI dành cho học sinh Việt Nam.
+              Nền tảng định hướng nghề nghiệp kết hợp RIASEC, dữ liệu học tập và AI dành cho học sinh Việt Nam.
             </p>
           </div>
 
@@ -23,9 +21,14 @@ export const Footer = () => {
           <div>
             <h4 className="text-sm font-semibold text-white mb-4">Liên kết</h4>
             <ul className="space-y-3 text-sm">
-              {['Về EduMatch', 'Dành cho học sinh', 'Cẩm nang tuyển sinh', 'Hợp tác trường học'].map(l => (
-                <li key={l}>
-                  <a href="#" className="hover:text-primary-400 transition-colors">{l}</a>
+              {[
+                ['Về EduMatch', '/#edumatch'],
+                ['RIASEC', '/#riasec'],
+                ['Cách hoạt động', '/#how-it-works'],
+                ['Hợp tác trường học', '/#universities'],
+              ].map(([label, href]) => (
+                <li key={label}>
+                  <a href={href} className="hover:text-primary-400 transition-colors">{label}</a>
                 </li>
               ))}
             </ul>
@@ -35,9 +38,14 @@ export const Footer = () => {
           <div>
             <h4 className="text-sm font-semibold text-white mb-4">Hỗ trợ</h4>
             <ul className="space-y-3 text-sm">
-              {['Câu hỏi thường gặp', 'Trung tâm trợ giúp', 'Điều khoản dịch vụ', 'Chính sách bảo mật'].map(l => (
-                <li key={l}>
-                  <a href="#" className="hover:text-primary-400 transition-colors">{l}</a>
+              {[
+                ['Đăng nhập', '/login'],
+                ['Tạo tài khoản', '/register'],
+                ['AI tư vấn', '/chat'],
+                ['Đóng góp ý kiến', '/feedback'],
+              ].map(([label, href]) => (
+                <li key={label}>
+                  <a href={href} className="hover:text-primary-400 transition-colors">{label}</a>
                 </li>
               ))}
             </ul>

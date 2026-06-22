@@ -1,6 +1,7 @@
 const aiService = require("../services/aiService");
 const User = require("../models/User");
 const ChatHistory = require("../models/ChatHistory");
+const { getSystemSettings } = require("../services/systemSettingsService");
 
 const MAX_CHAT_MESSAGES = 30;
 const MAX_MESSAGE_LENGTH = 3000;
@@ -64,8 +65,10 @@ const getChatAdvisorResponse = async (req, res) => {
       return res.status(400).json({ message: "Chat history is required" });
     }
 
+    const settings = await getSystemSettings();
+    const maxChatMessages = Math.min(200, Math.max(5, Number(settings.maxChatHistory || MAX_CHAT_MESSAGES)));
     const storableMessages = chatHistory
-      .slice(-MAX_CHAT_MESSAGES)
+      .slice(-maxChatMessages)
       .map(normalizeChatMessage)
       .filter(Boolean);
 
@@ -76,7 +79,10 @@ const getChatAdvisorResponse = async (req, res) => {
     // Load full user profile for personalized context
     const user = await User.findById(req.user._id).select("-password");
 
-    const aiResponse = await aiService.getChatResponse(storableMessages, user);
+    const aiResponse = await aiService.getChatResponse(storableMessages, user, {
+      aiModel: settings.aiModel,
+      systemPromptTemplate: settings.systemPromptTemplate,
+    });
 
     // ── Persist conversation ──────────────────────────────────────
     const convId = conversationId || `conv_${req.user._id}_${Date.now()}`;
@@ -96,6 +102,7 @@ const getChatAdvisorResponse = async (req, res) => {
           conversationId: convId,
           messages: storableMessages,
           lastMessageTime: new Date(),
+          modelVersion: settings.aiModel || "gemini-2.5-flash",
           isArchived: false,
         },
       },

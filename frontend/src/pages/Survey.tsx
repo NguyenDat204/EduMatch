@@ -23,7 +23,8 @@ const readDraft = (userId: string): SurveyDraft | null => {
   // Ưu tiên sessionStorage (chuyển tab không mất)
   for (const storage of [sessionStorage, localStorage]) {
     try {
-      const raw = storage.getItem(getSessionKey(userId));
+      const key = storage === sessionStorage ? getSessionKey(userId) : getLocalKey(userId);
+      const raw = storage.getItem(key);
       if (raw) {
         const d: SurveyDraft = JSON.parse(raw);
         if (d.answers && Object.keys(d.answers).length > 0) return d;
@@ -322,7 +323,7 @@ export const Survey = () => {
           <div>
             <h4 className="font-semibold text-sm text-slate-900 dark:text-white mb-1">AI phân tích như thế nào?</h4>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-              Câu trả lời được phân tích theo mô hình MBTI và RIASEC. Nháp lưu tự động vào bộ nhớ phiên —
+              Câu trả lời được phân tích theo mô hình Holland RIASEC, ARCS, học lực và kỹ năng tự đánh giá. Nháp lưu tự động vào bộ nhớ phiên —
               chuyển tab, thu nhỏ cửa sổ đều không mất dữ liệu. Chỉ ấn <strong>"Làm lại"</strong> mới xóa nháp.
             </p>
           </div>

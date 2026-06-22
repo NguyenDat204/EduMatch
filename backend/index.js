@@ -7,6 +7,8 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const connectDB = require("./config/db");
 const seedDatabase = require("./config/seed");
+const jwt = require("jsonwebtoken");
+const { getSystemSettings } = require("./services/systemSettingsService");
 
 // Route imports
 const authRoutes = require("./routes/authRoutes");
@@ -22,8 +24,10 @@ const skillGapRoutes = require("./routes/skillGapRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const surveyHistoryRoutes = require("./routes/surveyHistoryRoutes");
 const surveyQuestionRoutes = require("./routes/surveyQuestionRoutes");
+const recommendationFeedbackRoutes = require("./routes/recommendationFeedbackRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const planRoutes = require("./routes/planRoutes");
+const settingsRoutes = require("./routes/settingsRoutes");
 
 // Connect to Database
 connectDB().then(() => {
@@ -51,6 +55,46 @@ if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
 const recommendationsLimiter = rateLimit({ windowMs: 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false }); // 10 requests/min
 const authLimiter = rateLimit({ windowMs: 60 * 1000, max: 6, standardHeaders: true, legacyHeaders: false }); // 6 requests/min
 
+const maintenanceGuard = async (req, res, next) => {
+  try {
+    if (
+      req.method === "OPTIONS" ||
+      req.path === "/" ||
+      req.path.startsWith("/api/settings/public") ||
+      req.path.startsWith("/api/auth/login") ||
+      req.path.startsWith("/api/admin")
+    ) {
+      return next();
+    }
+
+    const settings = await getSystemSettings();
+    if (!settings.maintenanceMode) return next();
+
+    let isAdmin = false;
+    const authHeader = req.headers.authorization || "";
+    if (authHeader.startsWith("Bearer ") && process.env.JWT_SECRET) {
+      try {
+        const decoded = jwt.verify(authHeader.split(" ")[1], process.env.JWT_SECRET);
+        const User = require("./models/User");
+        const user = await User.findById(decoded.id).select("role").lean();
+        isAdmin = user?.role === "admin";
+      } catch {
+        isAdmin = false;
+      }
+    }
+
+    if (isAdmin) return next();
+    return res.status(503).json({
+      success: false,
+      message: "Hệ thống đang bảo trì. Vui lòng quay lại sau.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+app.use(maintenanceGuard);
+
 // Register API Routes
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/profile", profileRoutes);
@@ -69,8 +113,10 @@ app.use("/api/analytics/skill-gap", skillGapRoutes);
 app.use("/api/subscription", subscriptionRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api", planRoutes);
+app.use("/api/settings", settingsRoutes);
 app.use("/api/survey-questions", surveyQuestionRoutes);
 app.use("/api/survey-history", surveyHistoryRoutes);
+app.use("/api/recommendation-feedback", recommendationFeedbackRoutes);
 
 app.get("/", (req, res) => {
   res.send("EduMatch AI API Server is running beautifully...");

@@ -8,9 +8,6 @@ import {
   Zap,
   Compass,
   Star,
-  MessageSquare,
-  AlertCircle,
-  CheckCircle2,
   BookOpen,
   Loader2,
 } from 'lucide-react';
@@ -19,7 +16,6 @@ import { CareerCard } from '../components/ui/CareerCard';
 import { useAuth } from '../hooks/useAuth';
 import { useAIStatus } from '../hooks/useAIStatus';
 import { careerService } from '../services/api';
-import { feedbackService } from '../services/api';
 
 export const Dashboard = () => {
   const { user, isLoading, updateUserInState } = useAuth();
@@ -33,35 +29,11 @@ export const Dashboard = () => {
     }
   }, [user, isLoading, navigate]);
 
-  const [rating, setRating]                         = useState(5);
-  const [message, setMessage]                       = useState('');
-  const [submittingFeedback, setSubmittingFeedback] = useState(false);
-  const [feedbackSuccess, setFeedbackSuccess]       = useState(false);
-  const [feedbackError, setFeedbackError]           = useState<string | null>(null);
   // ✅ Moved above all early returns — hooks must always be called unconditionally
   const [recommendedCareers, setRecommendedCareers] = useState<any[]>([]);
 
   const testResults    = user?.personalityTest || {};
   const hasTakenSurvey = !!testResults.archetype;
-
-  const handleFeedbackSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim() || !user) return;
-    setSubmittingFeedback(true);
-    setFeedbackError(null);
-    try {
-      const res = await feedbackService.submitFeedback(user.name, user.email, message, rating);
-      if (res.success) {
-        setFeedbackSuccess(true);
-        setMessage('');
-        setRating(5);
-      }
-    } catch (err: any) {
-      setFeedbackError(err.response?.data?.message || 'Gửi phản hồi thất bại.');
-    } finally {
-      setSubmittingFeedback(false);
-    }
-  };
 
   useEffect(() => {
     if (!isLoading && !user) navigate('/login');
@@ -275,6 +247,7 @@ export const Dashboard = () => {
               bg: 'bg-primary-50 dark:bg-primary-900/20',
               value: user.favorites?.length || 0,
               label: 'Nghề đã lưu',
+              path: '/favorites',
             },
             {
               icon: <Zap size={20} className="text-accent-500" />,
@@ -283,7 +256,13 @@ export const Dashboard = () => {
               label: 'Hoàn thiện hồ sơ',
             },
           ].map((stat, i) => (
-            <div key={i} className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl p-5 flex items-center gap-4 shadow-card">
+            <button
+              key={i}
+              type="button"
+              onClick={() => stat.path && navigate(stat.path)}
+              className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl p-5 flex items-center gap-4 shadow-card text-left transition-all hover:-translate-y-0.5 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-card-hover disabled:hover:translate-y-0 disabled:hover:border-slate-200 dark:disabled:hover:border-navy-700"
+              disabled={!stat.path}
+            >
               <div className={`w-11 h-11 ${stat.bg} rounded-lg flex items-center justify-center shrink-0`}>
                 {stat.icon}
               </div>
@@ -291,7 +270,7 @@ export const Dashboard = () => {
                 <p className="text-xl font-black text-slate-900 dark:text-white">{stat.value}</p>
                 <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">{stat.label}</p>
               </div>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -429,67 +408,6 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        {/* ── Feedback ── */}
-        <section className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl p-6 shadow-card">
-          <h3 className="text-base font-bold flex items-center gap-2 mb-1 text-slate-900 dark:text-white">
-            <MessageSquare size={17} className="text-primary-600" />
-            Đóng góp ý kiến
-          </h3>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
-            Chia sẻ cảm nhận để giúp chúng tôi cải thiện hệ thống.
-          </p>
-
-          {feedbackSuccess ? (
-            <div className="p-4 bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400 rounded-lg flex items-center gap-3 border border-green-100 dark:border-green-900/30 text-sm">
-              <CheckCircle2 size={18} className="shrink-0" />
-              <span>Cảm ơn bạn đã gửi phản hồi!</span>
-            </div>
-          ) : (
-            <form onSubmit={handleFeedbackSubmit} className="space-y-4">
-              {feedbackError && (
-                <div className="p-3 bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-lg flex items-start gap-2 text-xs border border-red-100 dark:border-red-900/30">
-                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                  <span>{feedbackError}</span>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-500 mr-1">Đánh giá:</span>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setRating(star)}
-                    className="transition-transform hover:scale-110"
-                  >
-                    <Star
-                      size={20}
-                      fill={star <= rating ? 'currentColor' : 'none'}
-                      className={star <= rating ? 'text-amber-400' : 'text-slate-300 dark:text-slate-600'}
-                    />
-                  </button>
-                ))}
-              </div>
-
-              <textarea
-                required
-                rows={3}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Nhập ý kiến đóng góp của bạn..."
-                className="w-full bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-600 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all resize-none"
-              />
-
-              <button
-                type="submit"
-                disabled={submittingFeedback}
-                className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg text-sm transition-colors disabled:opacity-50"
-              >
-                {submittingFeedback ? 'Đang gửi...' : 'Gửi phản hồi'}
-              </button>
-            </form>
-          )}
-        </section>
       </div>
     </DashboardLayout>
   );

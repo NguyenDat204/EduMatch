@@ -3,16 +3,28 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Sparkles, ArrowRight, Loader2, RotateCcw, Lightbulb, History } from 'lucide-react';
 import { DashboardLayout } from '../layouts';
 import { CareerCard } from '../components/ui';
-import { aiApiService, surveyHistoryService } from '../services/api';
+import { aiApiService, recommendationFeedbackService, surveyHistoryService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useAIStatus } from '../hooks/useAIStatus';
 
 interface IndustryResult {
   archetype: string;
+  hollandCode?: string;
   description: string;
   suitabilityScore: number;
   careers: any[];
   insights: string;
+  riasecScores?: Record<string, number>;
+  scoreBreakdown?: Record<string, number>;
+  confidence?: {
+    level?: string;
+    label?: string;
+    score?: number;
+    scoreGap?: number;
+    answeredCount?: number;
+    reasons?: string[];
+  };
+  method?: string;
 }
 
 const buildRecommendationPayload = (surveyData: any, user: any) => ({
@@ -40,6 +52,10 @@ export const Result = () => {
   const [error, setError]     = useState<string | null>(null);
   const [savedToHistory, setSavedToHistory] = useState(false);
   const [savedError, setSavedError] = useState<string | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState<number>(0);
+  const [careerFit, setCareerFit] = useState<'interested' | 'unsure' | 'not_interested'>('unsure');
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [feedbackStatus, setFeedbackStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   const fetchRef = useRef(false);
   const { setAIRunning } = useAIStatus();
@@ -115,6 +131,11 @@ export const Result = () => {
               description: data.description || '',
               suitabilityScore: data.suitabilityScore || 0,
               insights: data.insights || '',
+              hollandCode: data.hollandCode || '',
+              riasecScores: data.riasecScores || {},
+              scoreBreakdown: data.scoreBreakdown || {},
+              confidence: data.confidence || {},
+              method: data.method || '',
               careers: data.careers || [],
               answers: recommendationPayload.answers,
               updatedAt: new Date(),
@@ -193,6 +214,23 @@ export const Result = () => {
     } catch (e) {
       console.warn('Retry save failed', e);
       setSavedError('Lưu lịch sử trắc nghiệm thất bại. Vui lòng thử lại.');
+    }
+  };
+
+  const submitFeedback = async () => {
+    if (!result || feedbackRating < 1) return;
+    setFeedbackStatus('saving');
+    try {
+      await recommendationFeedbackService.submit({
+        result,
+        perceivedAccuracy: feedbackRating,
+        topCareerFit: careerFit,
+        comment: feedbackComment,
+      });
+      setFeedbackStatus('saved');
+    } catch (e) {
+      console.warn('Recommendation feedback failed', e);
+      setFeedbackStatus('error');
     }
   };
 
@@ -332,6 +370,11 @@ export const Result = () => {
                   <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Phù hợp</p>
                 </div>
               </div>
+              {result.confidence?.label && (
+                <p className="mt-3 text-center text-[11px] text-slate-400">
+                  Độ tin cậy: <span className="font-bold text-primary-300">{result.confidence.label}</span>
+                </p>
+              )}
             </div>
           </div>
         </section>
@@ -367,6 +410,89 @@ export const Result = () => {
                 <Lightbulb size={16} className="text-amber-500" /> Nhận xét từ AI
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed italic">"{result.insights}"</p>
+            </div>
+
+            {(result.hollandCode || result.scoreBreakdown) && (
+              <div className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl p-5 shadow-card">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Cơ sở tính điểm</h3>
+                <div className="space-y-2 text-xs text-slate-500 dark:text-slate-400">
+                  {result.hollandCode && (
+                    <div className="flex items-center justify-between gap-3">
+                      <span>Mã Holland</span>
+                      <span className="font-bold text-primary-600 dark:text-primary-400">{result.hollandCode}</span>
+                    </div>
+                  )}
+                  {[
+                    ['RIASEC', result.scoreBreakdown?.riasecComponent],
+                    ['Học lực', result.scoreBreakdown?.academicBonus],
+                    ['Kỹ năng', result.scoreBreakdown?.skillBonus],
+                    ['Sở thích', result.scoreBreakdown?.preferenceBonus],
+                    ['Động lực', result.scoreBreakdown?.motivationBonus],
+                  ].map(([label, value]) => (
+                    value !== undefined && (
+                      <div key={label as string} className="flex items-center justify-between gap-3">
+                        <span>{label}</span>
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">{Number(value) >= 0 ? '+' : ''}{value}</span>
+                      </div>
+                    )
+                  ))}
+                </div>
+                {result.confidence?.score !== undefined && (
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-navy-700 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    <p>
+                      Độ tin cậy {result.confidence.score}/100 dựa trên số câu đã trả lời, khoảng cách giữa các ngành top và độ đầy đủ của hồ sơ.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl p-5 shadow-card">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Đánh giá kết quả</h3>
+              <div className="flex gap-1.5 mb-3">
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <button
+                    key={rating}
+                    type="button"
+                    onClick={() => setFeedbackRating(rating)}
+                    className={`w-8 h-8 rounded-lg text-xs font-bold border transition-colors ${
+                      feedbackRating === rating
+                        ? 'bg-primary-600 border-primary-600 text-white'
+                        : 'border-slate-200 dark:border-navy-700 text-slate-500 hover:border-primary-400'
+                    }`}
+                  >
+                    {rating}
+                  </button>
+                ))}
+              </div>
+              <select
+                value={careerFit}
+                onChange={(e) => setCareerFit(e.target.value as 'interested' | 'unsure' | 'not_interested')}
+                className="w-full mb-3 px-3 py-2 rounded-lg border border-slate-200 dark:border-navy-700 bg-white dark:bg-navy-800 text-sm text-slate-700 dark:text-slate-200"
+              >
+                <option value="interested">Tôi muốn tìm hiểu ngành top</option>
+                <option value="unsure">Tôi chưa chắc</option>
+                <option value="not_interested">Ngành top chưa phù hợp</option>
+              </select>
+              <textarea
+                value={feedbackComment}
+                onChange={(e) => setFeedbackComment(e.target.value)}
+                rows={2}
+                maxLength={1000}
+                placeholder="Góp ý ngắn để EduMatch cải thiện kết quả"
+                className="w-full mb-3 px-3 py-2 rounded-lg border border-slate-200 dark:border-navy-700 bg-white dark:bg-navy-800 text-sm text-slate-700 dark:text-slate-200 resize-none"
+              />
+              <button
+                type="button"
+                onClick={submitFeedback}
+                disabled={feedbackRating < 1 || feedbackStatus === 'saving'}
+                className="w-full py-2 bg-slate-900 dark:bg-white dark:text-slate-900 text-white font-semibold rounded-lg text-sm disabled:opacity-50"
+              >
+                {feedbackStatus === 'saving' ? 'Đang gửi...' : feedbackStatus === 'saved' ? 'Đã ghi nhận' : 'Gửi đánh giá'}
+              </button>
+              {feedbackStatus === 'error' && (
+                <p className="mt-2 text-xs text-red-500">Chưa gửi được đánh giá. Vui lòng thử lại.</p>
+              )}
             </div>
 
             <div className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-700 rounded-xl p-5 shadow-card">

@@ -2,6 +2,13 @@ import axios from 'axios';
 import type { Career, University, User, Question, ApiResponse, SubscriptionPlan, DashboardMetrics } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://edumatch-hfg8.onrender.com/api';
+const removeStoredToken = () => {
+  try {
+    localStorage.removeItem('edumatch_token');
+  } catch {
+    // Ignore storage access errors in restricted browser contexts.
+  }
+};
 
 export const apiClient = axios.create({
   baseURL: API_URL,
@@ -9,6 +16,13 @@ export const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+export const publicSettingsService = {
+  getPublicSettings: async (): Promise<ApiResponse<{ appTitle: string; maintenanceMode: boolean; allowRegistration: boolean }>> => {
+    const response = await apiClient.get('/settings/public');
+    return response.data;
+  },
+};
 
 // Automatically inject Authorization Header
 apiClient.interceptors.request.use(
@@ -31,7 +45,7 @@ apiClient.interceptors.response.use(
       // Skip auto-reload for auth endpoints — let the caller handle the error message
       const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/google');
       if (!isAuthEndpoint) {
-        try { localStorage.removeItem('edumatch_token'); } catch {}
+        removeStoredToken();
         if (typeof window !== 'undefined') window.location.reload();
       }
     }
@@ -223,6 +237,19 @@ export const surveyHistoryService = {
   },
 };
 
+export const recommendationFeedbackService = {
+  submit: async (payload: {
+    result: any;
+    surveyHistoryId?: string;
+    perceivedAccuracy: number;
+    topCareerFit: 'interested' | 'unsure' | 'not_interested';
+    comment?: string;
+  }): Promise<any> => {
+    const response = await apiClient.post('/recommendation-feedback', payload);
+    return response.data;
+  },
+};
+
 export const surveyService = {
   getQuestions: async (): Promise<ApiResponse<Question[]>> => {
     const response = await apiClient.get('/survey-questions');
@@ -252,8 +279,8 @@ export const adminService = {
     const response = await apiClient.delete(`/admin/users/${id}`);
     return response.data;
   },
-  getSystemAnalytics: async (): Promise<ApiResponse<any>> => {
-    const response = await apiClient.get('/admin/analytics');
+  getSystemAnalytics: async (period: 'week' | 'month' | 'year' = 'month'): Promise<ApiResponse<any>> => {
+    const response = await apiClient.get('/admin/analytics', { params: { period } });
     return response.data;
   },
   getFeedbackLogs: async (): Promise<ApiResponse<any[]>> => {
@@ -298,6 +325,18 @@ export const adminService = {
   },
   getAllSurveys: async (): Promise<ApiResponse<any[]>> => {
     const response = await apiClient.get('/admin/surveys');
+    return response.data;
+  },
+  getRecommendationFeedbacks: async (): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get('/admin/recommendation-feedbacks');
+    return response.data;
+  },
+  getPayments: async (): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get('/admin/payments');
+    return response.data;
+  },
+  getChats: async (): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get('/admin/chats');
     return response.data;
   },
   getUserActivity: async (userId: string): Promise<ApiResponse<any>> => {

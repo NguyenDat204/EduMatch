@@ -3,6 +3,7 @@ const { OAuth2Client } = require('google-auth-library');
 const nodemailer = require("nodemailer");
 const User = require("../models/User");
 const University = require("../models/University");
+const { getSystemSettings } = require("../services/systemSettingsService");
 
 const AUTH_USER_FIELDS = "name email role avatar isPro subscription academicInfo favorites personalityTest skillEvaluation universityId password";
 
@@ -137,11 +138,17 @@ const generateToken = (id) => {
 // @access  Public
 const registerUser = async (req, res) => {
   try {
+    const settings = await getSystemSettings();
     const { name, password, school, grade = '12', majorInterest = '' } = req.body;
     const email = normalizeEmail(req.body.email);
 
     if (!name || !email || !password) {
       return res.status(400).json({ message: "Please provide all required fields" });
+    }
+
+    const count = await User.countDocuments();
+    if (!settings.allowRegistration && count > 0) {
+      return res.status(403).json({ message: "Đăng ký tài khoản mới đang tạm đóng." });
     }
 
     const userExists = await User.findOne({ email });
@@ -151,7 +158,6 @@ const registerUser = async (req, res) => {
     }
 
     // Determine role (first user becomes admin for testing simplicity, or default to provided role / student)
-    const count = await User.countDocuments();
     let finalRole = req.body.role || "student";
     if (count === 0) {
       finalRole = "admin";
@@ -260,6 +266,11 @@ const googleLogin = async (req, res) => {
     let user = await User.findOne({ email }).select(AUTH_USER_FIELDS);
 
     if (!user) {
+      const settings = await getSystemSettings();
+      const count = await User.countDocuments();
+      if (!settings.allowRegistration && count > 0) {
+        return res.status(403).json({ message: "Đăng ký tài khoản mới đang tạm đóng." });
+      }
       const secureRandomPassword = Math.random().toString(36).slice(-10);
       user = await User.create({
         name: name || email.split("@")[0],

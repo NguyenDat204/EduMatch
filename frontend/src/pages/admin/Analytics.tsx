@@ -4,7 +4,8 @@ import {
   Users, ShieldCheck, MessageSquare, Briefcase,
   Building2, RefreshCw, TrendingUp, Star, Activity,
   FileText, Settings, Crown, BarChart3, PieChart, School,
-  CheckCircle2, AlertCircle, ArrowRight,
+  CheckCircle2, AlertCircle, ArrowRight, DollarSign, Bot, Gauge,
+  ThumbsUp, ThumbsDown, CreditCard,
 } from 'lucide-react';
 import { adminService } from '../../services/api';
 
@@ -19,6 +20,7 @@ interface DistributionPoint {
   value: number;
   recommendationCount?: number;
   avgSuitability?: number | null;
+  amount?: number;
 }
 
 interface TopCareer {
@@ -40,24 +42,87 @@ interface StatsData {
     articles: number;
     feedbacks: number;
     surveys: number;
+    recommendationFeedbacks: number;
+    payments: number;
+    chats: number;
+    interactions: number;
   };
   averageRating: number;
   completionRate: number;
+  period?: {
+    key: AnalyticsPeriod;
+    label: string;
+    days: number;
+    granularity: 'day';
+    from: string;
+    to: string;
+  };
+  quality: {
+    avgSuitability: number;
+    avgConfidence: number;
+    highConfidenceCount: number;
+    mediumConfidenceCount: number;
+    exploratoryConfidenceCount: number;
+    recommendationFeedbackCount: number;
+    avgRecommendationAccuracy: number;
+    avgSuitabilityAtFeedback: number;
+    avgConfidenceAtFeedback: number;
+    interestedCount: number;
+    unsureCount: number;
+    notInterestedCount: number;
+  };
+  monetization: {
+    totalRevenue: number;
+    paidCount: number;
+    pendingCount: number;
+    failedCount: number;
+    conversionRate: number;
+  };
+  aiUsage: {
+    chats: number;
+    totalMessages: number;
+    avgMessagesPerConversation: number;
+    totalTokens: number;
+    interactions: number;
+  };
   distributions: {
     roles: DistributionPoint[];
     ratings: DistributionPoint[];
     careerCategories: DistributionPoint[];
+    recommendationFit: DistributionPoint[];
+    paymentStatuses: DistributionPoint[];
   };
   trends: {
     users: TrendPoint[];
     surveys: TrendPoint[];
     feedbacks: TrendPoint[];
+    chats: TrendPoint[];
+    recommendationFeedbacks: TrendPoint[];
+    payments: TrendPoint[];
+    revenue: TrendPoint[];
   };
   topRecommendedCareers: TopCareer[];
+  recommendationFeedbackByCareer: {
+    title: string;
+    count: number;
+    avgAccuracy: number;
+    interestedCount: number;
+    notInterestedCount: number;
+  }[];
   recentSignups: any[];
   recentFeedbacks: any[];
   recentSurveys: any[];
+  recentRecommendationFeedbacks: any[];
+  recentPayments: any[];
 }
+
+type AnalyticsPeriod = 'week' | 'month' | 'year';
+
+const PERIOD_OPTIONS: { key: AnalyticsPeriod; label: string; description: string }[] = [
+  { key: 'week', label: 'Tuần', description: '7 ngày' },
+  { key: 'month', label: 'Tháng', description: '30 ngày' },
+  { key: 'year', label: 'Năm', description: '365 ngày' },
+];
 
 const fmt = (d: string) => {
   if (!d) return '--';
@@ -66,6 +131,7 @@ const fmt = (d: string) => {
 };
 
 const percent = (value: number, total: number) => total > 0 ? Math.round((value / total) * 100) : 0;
+const money = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value || 0);
 
 const StatCard = ({ label, value, icon: Icon, accent, sub }: { label: string; value: number | string; icon: any; accent: string; sub?: string }) => (
   <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm">
@@ -82,15 +148,18 @@ const StatCard = ({ label, value, icon: Icon, accent, sub }: { label: string; va
   </div>
 );
 
-const LineChart = ({ title, data, color }: { title: string; data: TrendPoint[]; color: string }) => {
+const LineChart = ({ title, data, color, periodLabel }: { title: string; data: TrendPoint[]; color: string; periodLabel: string }) => {
   const max = Math.max(1, ...data.map((item) => item.value));
-  const width = 520;
-  const height = 180;
-  const padding = 22;
+  const width = 640;
+  const height = 220;
+  const padding = 32;
+  const chartBottom = height - padding - 30;
+  const chartHeight = chartBottom - padding;
+  const labelEvery = data.length <= 10 ? 1 : data.length <= 31 ? 3 : data.length <= 120 ? 14 : 30;
   const step = data.length > 1 ? (width - padding * 2) / (data.length - 1) : 0;
   const points = data.map((item, index) => {
     const x = padding + index * step;
-    const y = height - padding - (item.value / max) * (height - padding * 2);
+    const y = padding + (1 - item.value / max) * chartHeight;
     return { ...item, x, y };
   });
   const path = points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
@@ -101,36 +170,63 @@ const LineChart = ({ title, data, color }: { title: string; data: TrendPoint[]; 
         <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
           <TrendingUp size={15} className={color} /> {title}
         </h3>
-        <span className="text-xs text-slate-400">14 ngày</span>
+        <span className="text-xs text-slate-400">{periodLabel}</span>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44">
-        {[0, 0.5, 1].map((ratio) => (
-          <line
-            key={ratio}
-            x1={padding}
-            x2={width - padding}
-            y1={padding + ratio * (height - padding * 2)}
-            y2={padding + ratio * (height - padding * 2)}
-            stroke="currentColor"
-            className="text-slate-100 dark:text-slate-700"
-            strokeWidth="1"
-          />
-        ))}
-        <path d={path} fill="none" stroke="currentColor" className={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        {points.map((point) => (
-          <g key={point.date}>
-            <circle cx={point.x} cy={point.y} r="4" fill="currentColor" className={color} />
-            {point.value > 0 && (
-              <text x={point.x} y={point.y - 9} textAnchor="middle" className="fill-slate-500 dark:fill-slate-400" fontSize="10" fontWeight="700">
-                {point.value}
-              </text>
-            )}
-          </g>
-        ))}
-      </svg>
-      <div className="mt-2 flex justify-between text-[10px] text-slate-400">
-        <span>{data[0]?.label || '--'}</span>
-        <span>{data[data.length - 1]?.label || '--'}</span>
+      <div className="pb-1">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-56">
+          {[0, 0.5, 1].map((ratio) => (
+            <line
+              key={ratio}
+              x1={padding}
+              x2={width - padding}
+              y1={padding + ratio * chartHeight}
+              y2={padding + ratio * chartHeight}
+              stroke="currentColor"
+              className="text-slate-100 dark:text-slate-700"
+              strokeWidth="1"
+            />
+          ))}
+          {points.map((point, index) => index % labelEvery === 0 || index === points.length - 1 ? (
+            <line
+              key={`${point.date}-tick`}
+              x1={point.x}
+              x2={point.x}
+              y1={chartBottom + 6}
+              y2={chartBottom + 12}
+              stroke="currentColor"
+              className="text-slate-200 dark:text-slate-700"
+              strokeWidth="1"
+            />
+          ) : null)}
+          <path d={path} fill="none" stroke="currentColor" className={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          {points.map((point, index) => {
+            const showLabel = index % labelEvery === 0 || index === points.length - 1;
+            const showPoint = point.value > 0 || showLabel || data.length <= 31;
+            return (
+            <g key={point.date}>
+              {showPoint && <circle cx={point.x} cy={point.y} r={point.value > 0 ? 4 : 3} fill="currentColor" className={color} />}
+              <title>{`${point.label}: ${point.value}`}</title>
+              {point.value > 0 && (
+                <text x={point.x} y={point.y - 9} textAnchor="middle" className="fill-slate-500 dark:fill-slate-400" fontSize="10" fontWeight="700">
+                  {point.value}
+                </text>
+              )}
+              {showLabel && (
+                <text
+                  x={point.x}
+                  y={height - 8}
+                  textAnchor="middle"
+                  className="fill-slate-400"
+                  fontSize="10"
+                  fontWeight="600"
+                >
+                  {point.label}
+                </text>
+              )}
+            </g>
+          );
+          })}
+        </svg>
       </div>
     </div>
   );
@@ -188,6 +284,87 @@ const RatingDistribution = ({ data }: { data: DistributionPoint[] }) => {
   );
 };
 
+const CompactBars = ({ title, data, icon: Icon }: { title: string; data: DistributionPoint[]; icon: any }) => {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  const labelMap: Record<string, string> = {
+    interested: 'Muốn tìm hiểu',
+    unsure: 'Chưa chắc',
+    not_interested: 'Chưa phù hợp',
+    PAID: 'Đã thanh toán',
+    PENDING: 'Đang chờ',
+    FAILED: 'Thất bại',
+    CANCELLED: 'Đã hủy',
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
+      <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
+        <Icon size={15} className="text-indigo-500" /> {title}
+      </h3>
+      <div className="space-y-3">
+        {data.length === 0 || total === 0 ? (
+          <p className="text-sm text-slate-400 py-8 text-center">Chưa có dữ liệu</p>
+        ) : data.map((item) => (
+          <div key={item.label}>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="font-semibold text-slate-600 dark:text-slate-300">{labelMap[item.label] || item.label}</span>
+              <span className="text-slate-400">{item.value} · {percent(item.value, total)}%</span>
+            </div>
+            <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.max(4, percent(item.value, total))}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const QualityPanel = ({ stats }: { stats: StatsData }) => {
+  const q = stats.quality;
+  const totalConfidence = q.highConfidenceCount + q.mediumConfidenceCount + q.exploratoryConfidenceCount;
+  return (
+    <div className="lg:col-span-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-3 mb-5">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <Gauge size={15} className="text-emerald-500" /> Chất lượng AI Recommendation
+        </h3>
+        <span className="text-xs text-slate-400">{q.recommendationFeedbackCount} đánh giá AI</span>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <MiniMetric label="Suitability TB" value={`${q.avgSuitability}%`} />
+        <MiniMetric label="Confidence TB" value={`${q.avgConfidence}/100`} />
+        <MiniMetric label="Accuracy user" value={q.avgRecommendationAccuracy ? `${q.avgRecommendationAccuracy}/5` : '--'} />
+        <MiniMetric label="Interested" value={`${percent(q.interestedCount, q.recommendationFeedbackCount)}%`} />
+      </div>
+      <div className="space-y-3">
+        {[
+          ['Cao', q.highConfidenceCount, 'bg-emerald-500'],
+          ['Trung bình', q.mediumConfidenceCount, 'bg-amber-500'],
+          ['Tham khảo', q.exploratoryConfidenceCount, 'bg-slate-400'],
+        ].map(([label, value, color]) => (
+          <div key={label as string}>
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="font-semibold text-slate-600 dark:text-slate-300">{label}</span>
+              <span className="text-slate-400">{value as number} kết quả</span>
+            </div>
+            <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+              <div className={`h-full ${color} rounded-full`} style={{ width: `${Math.max(4, percent(value as number, totalConfidence))}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const MiniMetric = ({ label, value }: { label: string; value: string | number }) => (
+  <div className="rounded-lg bg-slate-50 dark:bg-slate-700/50 p-3">
+    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+    <p className="mt-1 text-lg font-black text-slate-900 dark:text-white">{value}</p>
+  </div>
+);
+
 const CareerCategoryCoverage = ({ data }: { data: DistributionPoint[] }) => {
   const totalCareers = data.reduce((sum, item) => sum + item.value, 0);
   const maxCareers = Math.max(1, ...data.map((item) => item.value));
@@ -229,6 +406,7 @@ const CareerCategoryCoverage = ({ data }: { data: DistributionPoint[] }) => {
 
 export const Analytics = () => {
   const [stats, setStats] = useState<StatsData | null>(null);
+  const [period, setPeriod] = useState<AnalyticsPeriod>('month');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -237,7 +415,7 @@ export const Analytics = () => {
     if (isRefresh) setRefreshing(true); else setLoading(true);
     setError(null);
     try {
-      const res = await adminService.getSystemAnalytics();
+      const res = await adminService.getSystemAnalytics(period);
       if (res.success && res.data) setStats(res.data as StatsData);
     } catch {
       setError('Không thể tải dữ liệu thống kê.');
@@ -246,7 +424,7 @@ export const Analytics = () => {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadData(); }, [period]);
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center py-40 gap-4">
@@ -260,13 +438,18 @@ export const Analytics = () => {
   const s = stats?.counts || {
     users: 0, students: 0, admins: 0, universityUsers: 0, proUsers: 0,
     careers: 0, universities: 0, articles: 0, feedbacks: 0, surveys: 0,
+    recommendationFeedbacks: 0, payments: 0, chats: 0, interactions: 0,
   };
   const systemChecks = [
     { label: 'Có dữ liệu ngành nghề', ok: s.careers > 0, hint: `${s.careers} ngành` },
     { label: 'Có dữ liệu trường đại học', ok: s.universities > 0, hint: `${s.universities} trường` },
     { label: 'Có phản hồi người dùng', ok: s.feedbacks > 0, hint: `${s.feedbacks} phản hồi` },
     { label: 'Có bài trắc nghiệm hoàn tất', ok: s.surveys > 0, hint: `${s.surveys} bài` },
+    { label: 'Có feedback AI recommendation', ok: s.recommendationFeedbacks > 0, hint: `${s.recommendationFeedbacks} đánh giá` },
+    { label: 'Có dữ liệu thanh toán', ok: s.payments > 0, hint: `${s.payments} giao dịch` },
+    { label: 'Có dữ liệu AI chat', ok: s.chats > 0, hint: `${s.chats} hội thoại` },
   ];
+  const periodLabel = stats?.period?.label || PERIOD_OPTIONS.find((item) => item.key === period)?.description || '30 ngày';
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -280,14 +463,33 @@ export const Analytics = () => {
           <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">Tổng quan hệ thống</h1>
           <p className="text-sm text-slate-500 mt-0.5">Theo dõi tăng trưởng, chất lượng dữ liệu và hành vi người dùng.</p>
         </div>
-        <button
-          onClick={() => loadData(true)}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 transition-all shadow-sm"
-        >
-          <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
-          Làm mới
-        </button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+          <div className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1 shadow-sm">
+            {PERIOD_OPTIONS.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => setPeriod(option.key)}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                  period === option.key
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+                title={option.description}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => loadData(true)}
+            disabled={refreshing}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600 transition-all shadow-sm"
+          >
+            <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+            Làm mới
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -307,10 +509,50 @@ export const Analytics = () => {
         <StatCard label="Rating" value={`${stats?.averageRating || 5.0}★`} icon={MessageSquare} accent="bg-rose-50 text-rose-600 dark:bg-rose-950/30" sub={`${s.feedbacks} phản hồi`} />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        <LineChart title="User mới" data={stats?.trends.users || []} color="text-sky-500" />
-        <LineChart title="Bài trắc nghiệm" data={stats?.trends.surveys || []} color="text-teal-500" />
-        <LineChart title="Phản hồi" data={stats?.trends.feedbacks || []} color="text-rose-500" />
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard
+          label="Doanh thu"
+          value={money(stats?.monetization.totalRevenue || 0)}
+          icon={DollarSign}
+          accent="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30"
+          sub={`${stats?.monetization.paidCount || 0} giao dịch PAID`}
+        />
+        <StatCard
+          label="AI Chat"
+          value={stats?.aiUsage.chats || 0}
+          icon={Bot}
+          accent="bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30"
+          sub={`${stats?.aiUsage.totalMessages || 0} tin nhắn`}
+        />
+        <StatCard
+          label="Confidence AI"
+          value={`${stats?.quality.avgConfidence || 0}/100`}
+          icon={Gauge}
+          accent="bg-teal-50 text-teal-600 dark:bg-teal-950/30"
+          sub={`${stats?.quality.highConfidenceCount || 0} kết quả confidence cao`}
+        />
+        <StatCard
+          label="Accuracy phản hồi"
+          value={stats?.quality.avgRecommendationAccuracy ? `${stats.quality.avgRecommendationAccuracy}/5` : '--'}
+          icon={ThumbsUp}
+          accent="bg-amber-50 text-amber-600 dark:bg-amber-950/30"
+          sub={`${s.recommendationFeedbacks} đánh giá AI`}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <LineChart title="User mới" data={stats?.trends.users || []} color="text-sky-500" periodLabel={periodLabel} />
+        <LineChart title="Bài trắc nghiệm" data={stats?.trends.surveys || []} color="text-teal-500" periodLabel={periodLabel} />
+        <LineChart title="Phản hồi" data={stats?.trends.feedbacks || []} color="text-rose-500" periodLabel={periodLabel} />
+        <LineChart title="AI chat" data={stats?.trends.chats || []} color="text-indigo-500" periodLabel={periodLabel} />
+        <LineChart title="Đánh giá AI" data={stats?.trends.recommendationFeedbacks || []} color="text-amber-500" periodLabel={periodLabel} />
+        <LineChart title="Doanh thu" data={stats?.trends.revenue || []} color="text-emerald-500" periodLabel={periodLabel} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+        {stats && <QualityPanel stats={stats} />}
+        <CompactBars title="Phản hồi ngành top" data={stats?.distributions.recommendationFit || []} icon={ThumbsUp} />
+        <CompactBars title="Trạng thái thanh toán" data={stats?.distributions.paymentStatuses || []} icon={CreditCard} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
@@ -380,6 +622,35 @@ export const Analytics = () => {
         </div>
       </div>
 
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+          <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+            <Gauge size={15} className="text-amber-500" /> Hiệu quả recommendation theo feedback người dùng
+          </h3>
+          <span className="text-xs text-slate-400">Khách quan từ đánh giá sau khảo sát</span>
+        </div>
+        <div className="hidden md:grid grid-cols-[1.4fr_100px_120px_120px_120px] gap-4 px-5 py-3 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase tracking-wider text-slate-500">
+          <span>Ngành top</span>
+          <span>Số đánh giá</span>
+          <span>Accuracy TB</span>
+          <span>Interested</span>
+          <span>Not interested</span>
+        </div>
+        <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {(stats?.recommendationFeedbackByCareer || []).length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-400">Chưa có feedback recommendation</p>
+          ) : stats?.recommendationFeedbackByCareer.map((item) => (
+            <div key={item.title} className="grid grid-cols-1 md:grid-cols-[1.4fr_100px_120px_120px_120px] gap-2 md:gap-4 px-5 py-3 items-center">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{item.title}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{item.count}</p>
+              <p className="text-sm font-bold text-amber-600">{item.avgAccuracy}/5</p>
+              <p className="text-sm text-emerald-600 flex items-center gap-1"><ThumbsUp size={13} /> {item.interestedCount}</p>
+              <p className="text-sm text-red-500 flex items-center gap-1"><ThumbsDown size={13} /> {item.notInterestedCount}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <RecentList title="Đăng ký gần đây" icon={Users} items={stats?.recentSignups || []} render={(u: any) => ({
           key: u._id,
@@ -401,6 +672,23 @@ export const Analytics = () => {
           subtitle: sv.result?.archetype || 'Kết quả không có',
           meta: fmt(sv.completedAt),
           badge: `${sv.result?.suitabilityScore || 0}%`,
+        })} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <RecentList title="Feedback AI gần đây" icon={Gauge} items={stats?.recentRecommendationFeedbacks || []} render={(fb: any) => ({
+          key: fb._id,
+          title: fb.userId?.name || 'Ẩn danh',
+          subtitle: `${fb.topCareerTitle || 'Không rõ ngành'} · ${fb.comment || 'Không có bình luận'}`,
+          meta: `${fb.perceivedAccuracy || 0}/5`,
+          badge: fb.topCareerFit || 'unsure',
+        })} />
+        <RecentList title="Thanh toán gần đây" icon={CreditCard} items={stats?.recentPayments || []} render={(payment: any) => ({
+          key: payment._id,
+          title: payment.user_id?.name || 'Không rõ user',
+          subtitle: `${payment.plan_id?.name || payment.description || 'Gói dịch vụ'} · ${money(payment.amount || 0)}`,
+          meta: fmt(payment.created_at),
+          badge: payment.status,
         })} />
       </div>
 

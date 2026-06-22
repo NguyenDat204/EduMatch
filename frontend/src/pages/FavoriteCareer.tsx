@@ -32,8 +32,8 @@ export const FavoriteCareer = () => {
           <div className="inline-flex items-center justify-center w-12 h-12 bg-red-50 dark:bg-red-950/20 text-red-500 rounded-2xl mb-4">
             <Heart size={24} fill="currentColor" />
           </div>
-          <h1 className="text-3xl font-display font-bold mb-2">Ngành nghề yêu thích</h1>
-          <p className="text-slate-500">Danh sách các ngành nghề bạn đã lưu lại để tìm hiểu thêm.</p>
+          <h1 className="text-3xl font-display font-bold mb-2">Nghề đã lưu</h1>
+          <p className="text-slate-500">Danh sách các nghề bạn đã lưu lại để xem lại và tìm hiểu sâu hơn.</p>
         </div>
 
         {loading ? (

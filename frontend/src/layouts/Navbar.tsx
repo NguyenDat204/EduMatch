@@ -46,8 +46,14 @@ export const Navbar = () => {
             <a href="/#problem" className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
               Vấn đề
             </a>
+            <a href="/#riasec" className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+              RIASEC
+            </a>
             <a href="/#how-it-works" className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
               Cách hoạt động
+            </a>
+            <a href="/#edumatch" className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+              EduMatch
             </a>
             <a href="/#universities" className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
               Nhà trường
@@ -138,8 +144,14 @@ export const Navbar = () => {
             <a href="/#problem" onClick={() => setIsOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-primary-600 hover:bg-slate-50 dark:hover:bg-navy-900 rounded-lg transition-colors">
               Vấn đề
             </a>
+            <a href="/#riasec" onClick={() => setIsOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-primary-600 hover:bg-slate-50 dark:hover:bg-navy-900 rounded-lg transition-colors">
+              RIASEC
+            </a>
             <a href="/#how-it-works" onClick={() => setIsOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-primary-600 hover:bg-slate-50 dark:hover:bg-navy-900 rounded-lg transition-colors">
               Cách hoạt động
+            </a>
+            <a href="/#edumatch" onClick={() => setIsOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-primary-600 hover:bg-slate-50 dark:hover:bg-navy-900 rounded-lg transition-colors">
+              EduMatch
             </a>
             <a href="/#universities" onClick={() => setIsOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-primary-600 hover:bg-slate-50 dark:hover:bg-navy-900 rounded-lg transition-colors">
               Nhà trường

@@ -3,7 +3,7 @@ import { NavLink, useNavigate, Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Compass, MessageSquare,
   User, CreditCard, LogOut, ChevronLeft, ChevronRight,
-  Target, Sparkles, BookOpen, Building2, History, X,
+  Target, Sparkles, BookOpen, Building2, History, X, Heart,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
@@ -47,7 +47,9 @@ export const Sidebar = ({ onCollapsedChange }: SidebarProps) => {
         { icon: Sparkles,        label: 'Trắc nghiệm hướng nghiệp', path: '/survey' },
         { icon: History,         label: 'Lịch sử trắc nghiệm',      path: '/survey-history' },
         { icon: Compass,         label: 'Khám phá',                 path: '/explore' },
+        { icon: Heart,           label: 'Nghề đã lưu',              path: '/favorites' },
         { icon: MessageSquare,   label: 'AI Tư vấn',                path: '/chat' },
+        { icon: MessageSquare,   label: 'Đóng góp ý kiến',          path: '/feedback' },
       ],
     },
     {

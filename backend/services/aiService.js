@@ -2,6 +2,8 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { z } = require("zod");
 const crypto = require("crypto");
 const Career = require("../models/Career");
+const recommendationScoring = require("./recommendationScoring");
+const { getSystemSettings } = require("./systemSettingsService");
 require("dotenv").config();
 
 const parseListEnv = (value, fallback) => {
@@ -18,10 +20,15 @@ const GEMINI_MODEL_FALLBACKS = process.env.GEMINI_RECOMMENDATION_MODELS
 const GEMINI_MAX_RETRIES = Number(process.env.GEMINI_MAX_RETRIES || 1);
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 10000);
 const AI_RECOMMENDATION_MODE = process.env.AI_RECOMMENDATION_MODE || "balanced"; // balanced | local
+const AI_DEBUG_LOGS = process.env.AI_DEBUG_LOGS === "true";
 const CAREER_CATALOG_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_PROMPT_CAREERS = Number(process.env.AI_PROMPT_CAREER_LIMIT || 40);
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 const MAX_CACHE_ENTRIES = 500;
+
+const debugLog = (...args) => {
+  if (AI_DEBUG_LOGS) console.log(...args);
+};
 
 let careerCatalogCache = {
   value: null,
@@ -152,6 +159,11 @@ const UserProfileSchema = z.object({
 const CareerRecommendationResponseSchema = z.object({
   archetype: z.string(),
   hollandCode: z.string().optional(),
+  riasecScores: z.record(z.number()).optional(),
+  scoreBreakdown: z.record(z.any()).optional(),
+  confidence: z.record(z.any()).optional(),
+  method: z.string().optional(),
+  surveyThreshold: z.number().optional(),
   description: z.string(),
   suitabilityScore: z.number().min(0).max(100),
   careers: z.array(z.object({
@@ -161,7 +173,9 @@ const CareerRecommendationResponseSchema = z.object({
     growth: z.string(),
     skills: z.array(z.string()),
     suitability: z.number(),
+    meetsSurveyThreshold: z.boolean().optional(),
     category: z.string(),
+    scoreBreakdown: z.record(z.any()).optional(),
     roadmap: z.array(z.object({
       phase: z.string(),
       title: z.string(),
@@ -449,7 +463,7 @@ const scoreCareerForProfile = (career, userData = {}) => {
   const majorInterest = normalizeKeyword(academic.majorInterest);
   const riasecScores = getRiasecScoresFromAnswers(answers);
 
-  if (['quy trinh co dinh ro rang', 'thien ve quy trinh'].includes(normalizeKeyword(answers.q40))) {
+  if (['quy trinh co dinh ro rang', 'thien ve quy trinh'].includes(normalizeKeyword(answers.q39))) {
     riasecScores.Conventional += 2;
   }
 
@@ -650,6 +664,69 @@ ${careerContext}
 `;
 };
 
+const buildCareerExplanationPrompt = (userData, deterministicResult) => {
+  const academic = getAcademicInfo(userData);
+  const skillScores = getSkillScores(userData);
+  const compactCareers = (deterministicResult.careers || []).map((career) => ({
+    title: career.title,
+    category: career.category,
+    suitability: career.suitability,
+    scoreBreakdown: career.scoreBreakdown,
+    skills: Array.isArray(career.skills) ? career.skills.slice(0, 6) : [],
+  }));
+
+  return `
+Bạn là EduMatch AI Advisor, chuyên gia tư vấn hướng nghiệp cho học sinh THPT Việt Nam.
+
+Backend đã tính toán kết quả bằng RIASEC + ARCS + học lực + kỹ năng tự đánh giá. Nhiệm vụ của bạn KHÔNG phải chọn lại ngành và KHÔNG được đổi điểm phù hợp.
+
+**DỮ LIỆU ĐÃ TÍNH:**
+${JSON.stringify({
+    archetype: deterministicResult.archetype,
+    hollandCode: deterministicResult.hollandCode,
+    riasecScores: deterministicResult.riasecScores,
+    suitabilityScore: deterministicResult.suitabilityScore,
+    scoreBreakdown: deterministicResult.scoreBreakdown,
+    careers: compactCareers,
+    academicInfo: {
+      school: academic.school,
+      grade: academic.grade,
+      majorInterest: academic.majorInterest,
+      subjects: academic.subjects || {},
+    },
+    skillScores,
+  })}
+
+**YÊU CẦU:**
+1. Giữ nguyên archetype, hollandCode, suitabilityScore, careers.title, careers.category, careers.suitability.
+2. Viết description 2-3 câu bằng tiếng Việt, dễ hiểu, dựa trên Holland Code và điểm RIASEC.
+3. Viết insights 3-5 câu, giải thích vì sao top ngành phù hợp, nhắc điểm mạnh và điểm cần bù đắp nếu có.
+4. Có thể cải thiện description/roadmap của từng career nhưng không đổi danh sách ngành, thứ tự ngành hoặc điểm.
+5. Không dùng markdown. Chỉ trả JSON hợp lệ.
+
+**ĐỊNH DẠNG JSON:**
+{
+  "description": "Mô tả cá nhân hóa",
+  "insights": "Nhận xét chiến lược",
+  "careers": [
+    {
+      "title": "Giữ nguyên title",
+      "description": "Mô tả vai trò phù hợp với học sinh",
+      "roadmap": [
+        {
+          "phase": "Giai đoạn 1",
+          "title": "Tên giai đoạn",
+          "duration": "6-12 tháng",
+          "description": "Việc cần tập trung",
+          "skillsToAcquire": ["Skill A", "Skill B"]
+        }
+      ]
+    }
+  ]
+}
+`;
+};
+
 // ==================== ENHANCED RECOMMENDATION ====================
 
 // Rich fallback database of careers and roadmaps to drive the deterministic recommendation engine
@@ -729,419 +806,167 @@ const PRESETS = {
 };
 
 /**
- * AI Recommendation Generator with RAG + Caching + Retry
+ * AI Recommendation Generator with deterministic scoring + optional LLM explanation.
+ * The rule-based RIASEC/ARCS engine is the source of truth for ranking and percentages;
+ * Gemini is only used to improve explanation text and roadmaps.
  */
+const mergeExplanationIntoDeterministicResult = (deterministicResult, explanation) => {
+  if (!explanation || typeof explanation !== "object") return deterministicResult;
+
+  const explanationCareersByTitle = new Map(
+    (Array.isArray(explanation.careers) ? explanation.careers : [])
+      .filter((career) => career?.title)
+      .map((career) => [normalizeKeyword(career.title), career])
+  );
+
+  return {
+    ...deterministicResult,
+    description: toTrimmedString(explanation.description || deterministicResult.description),
+    insights: toTrimmedString(explanation.insights || deterministicResult.insights),
+    careers: deterministicResult.careers.map((career) => {
+      const aiCareer = explanationCareersByTitle.get(normalizeKeyword(career.title));
+      return {
+        ...career,
+        description: toTrimmedString(aiCareer?.description || career.description),
+        roadmap: Array.isArray(aiCareer?.roadmap) && aiCareer.roadmap.length
+          ? aiCareer.roadmap.map(normalizeRoadmapStep).filter((step) => step && step.title && step.description)
+          : career.roadmap,
+      };
+    }),
+  };
+};
+
+const applySurveyThreshold = (result, surveyThreshold = 70) => {
+  const threshold = clampNumber(surveyThreshold, 10, 100, 70);
+  const careers = Array.isArray(result.careers) ? result.careers : [];
+  const qualifiedCareers = careers.filter((career) => Number(career.suitability || 0) >= threshold);
+  return {
+    ...result,
+    surveyThreshold: threshold,
+    careers: (qualifiedCareers.length ? qualifiedCareers : careers.slice(0, Math.min(3, careers.length))).map((career) => ({
+      ...career,
+      meetsSurveyThreshold: Number(career.suitability || 0) >= threshold,
+    })),
+  };
+};
+
 const getCareerRecommendations = async (userData) => {
   let careerCatalog = [];
 
   try {
-    // Validate input
+    const settings = await getSystemSettings();
     const validatedUser = UserProfileSchema.parse(userData);
-
-    // Load career catalog from database for strict matching and prompt context
     careerCatalog = await fetchCareerCatalog();
     const promptCareers = careerCatalog.length ? careerCatalog : PRESETS.careers;
-    const careerContext = buildCareerCatalogContext(promptCareers);
 
-    // Check cache first
-    const cacheKey = generateCacheKey({ ...validatedUser, titles: promptCareers.map((c) => c.title) });
+    const cacheKey = generateCacheKey({
+      ...validatedUser,
+      titles: promptCareers.map((career) => career.title),
+      scoringVersion: "riasec-arcs-v3",
+      explanationMode: AI_RECOMMENDATION_MODE,
+      aiModel: settings.aiModel,
+      surveyThreshold: settings.surveyThreshold,
+    });
     const cached = cacheGet(cacheKey);
     if (cached) {
-      console.log("✓ Cache HIT for recommendation");
+      debugLog("✓ Cache HIT for recommendation");
       return cached;
     }
 
-    console.log("Cache MISS - generating recommendation...");
+    debugLog("Cache MISS - scoring deterministic recommendation...");
+    const deterministicResult = recommendationScoring.buildDeterministicRecommendation(
+      validatedUser,
+      promptCareers
+    );
+    assertCoherentRecommendationSet(deterministicResult);
 
-    // Build advanced prompt
-    const prompt = buildCareerRecommendationPrompt(validatedUser, careerContext, promptCareers);
+    let finalResult = deterministicResult;
 
-    // Try Gemini within a short latency budget. If it is slow, use the local engine.
     if (genAI && AI_RECOMMENDATION_MODE !== "local") {
-      for (const modelName of GEMINI_MODEL_FALLBACKS) {
+      const prompt = buildCareerExplanationPrompt(validatedUser, deterministicResult);
+
+      const modelCandidates = [
+        settings.aiModel,
+        ...GEMINI_MODEL_FALLBACKS,
+      ].filter(Boolean);
+      for (const modelName of [...new Set(modelCandidates)]) {
         try {
-          console.log(`Attempting analysis with model: ${modelName}`);
+          debugLog(`Attempting AI explanation with model: ${modelName}`);
           const model = genAI.getGenerativeModel({
             model: modelName,
             generationConfig: {
               responseMimeType: "application/json",
-              temperature: 0.35,
-              maxOutputTokens: 4096,
+              temperature: 0.25,
+              maxOutputTokens: 3072,
             },
           });
 
-          // Call with retry logic
           const result = await callGeminiWithRetry(async () => {
             return await withTimeout(
               model.generateContent(prompt),
               GEMINI_TIMEOUT_MS,
-              `Gemini recommendation (${modelName})`
+              `Gemini recommendation explanation (${modelName})`
             );
           });
 
           const response = await result.response;
-          let text = response.text();
+          const cleanedText = extractJsonObject(response.text());
+          const explanation = JSON.parse(cleanedText);
+          finalResult = mergeExplanationIntoDeterministicResult(deterministicResult, explanation);
+          finalResult.method = "RIASEC_ARCS_RULE_BASED_WITH_GEMINI_EXPLANATION";
 
-          console.log("✓ Gemini response received");
-
-          const cleanedText = extractJsonObject(text);
-          const parsedResult = JSON.parse(cleanedText);
-
-          // Normalize and validate output against known career titles
-          const normalizedResult = normalizeKnownCareerRecommendations(parsedResult, promptCareers);
-          assertCoherentRecommendationSet(normalizedResult);
-          const rerankedResult = rerankRecommendationsByProfile(normalizedResult, validatedUser, promptCareers);
-          assertCoherentRecommendationSet(rerankedResult);
-          const validatedResult = CareerRecommendationResponseSchema.parse(rerankedResult);
-
-          // Cache result
-          cacheSet(cacheKey, validatedResult);
-
-          // Log cost
           const inputTokens = estimateTokens(prompt);
           const outputTokens = estimateTokens(cleanedText);
           const cost = estimateCost(inputTokens, outputTokens);
-          console.log(
-            `[Recommendation] Tokens: ${inputTokens + outputTokens}, Cost: $${cost.toFixed(4)}`
-          );
-
-          return validatedResult;
+          debugLog(`[Recommendation Explanation] Tokens: ${inputTokens + outputTokens}, Cost: $${cost.toFixed(4)}`);
+          break;
         } catch (err) {
-          console.warn(
-            `Gemini model ${modelName} failed:`,
-            err.message
-          );
+          console.warn(`Gemini explanation model ${modelName} failed:`, err.message);
         }
       }
     } else if (AI_RECOMMENDATION_MODE === "local") {
-      console.log("AI_RECOMMENDATION_MODE=local - skipping Gemini for fast recommendation.");
+      debugLog("AI_RECOMMENDATION_MODE=local - using deterministic recommendation only.");
     }
 
-    // DETerMINISTIC RULE-BASED FALLBACK (local recommendation engine)
-    console.log("Using local advanced recommendation engine fallback...");
-  } catch (geminiErr) {
-    console.warn("Gemini failed:", geminiErr.message);
-    console.log("Falling back to local engine...");
+    finalResult = applySurveyThreshold(finalResult, settings.surveyThreshold);
+    const validatedResult = CareerRecommendationResponseSchema.parse(finalResult);
+    cacheSet(cacheKey, validatedResult);
+    return validatedResult;
+  } catch (err) {
+    console.warn("Recommendation engine failed, using minimal local fallback:", err.message);
+    const fallbackCareers = careerCatalog.length ? careerCatalog : PRESETS.careers;
+    const fallbackResult = recommendationScoring.buildDeterministicRecommendation(userData || {}, fallbackCareers);
+    const validatedFallback = CareerRecommendationResponseSchema.parse(fallbackResult);
+    cacheSet(generateCacheKey({ userData, titles: fallbackCareers.map((career) => career.title), fallback: true }), validatedFallback);
+    return validatedFallback;
   }
-
-  // LOCAL FALLBACK - Intelligent rule-based recommendations
-  const answers = userData.answers || {};
-  const academic = getAcademicInfo(userData);
-  const subjects = academic.subjects || {};
-  const skillScores = getSkillScores(userData);
-  const favoriteSignals = getFavoriteSignals(userData);
-  const majorInterest = normalizeKeyword(academic.majorInterest);
-  const fallbackCareers = careerCatalog.length ? careerCatalog : PRESETS.careers;
-
-  const normalizeAnswer = (value) => {
-    const raw = String(value ?? '').trim();
-    const lower = raw.toLowerCase();
-
-    if (raw === '') return 2;
-    if (Number.isFinite(Number(raw))) {
-      const n = Number(raw);
-      if (n >= 1 && n <= 5) return clampNumber(n - 1, 0, 4, 2);
-    }
-
-    const mapping = {
-      'không thích': 0,
-      'không quan tâm': 0,
-      'không phù hợp': 0,
-      'không thích lắm': 0,
-      'không tự tin': 0,
-      'không': 0,
-      'không bao giờ': 0,
-      'hiếm khi': 1,
-      'thỉnh thoảng': 2,
-      'có một chút': 2,
-      'bình thường': 2,
-      'tương đối tự tin': 2,
-      'có thể': 2,
-      'một chút cả hai': 2,
-      'cả hai': 2,
-      'vừa đủ': 2,
-      'cả hai tùy trường hợp': 2,
-      'rất thích': 4,
-      'rất yêu thích': 4,
-      'rất tự tin': 4,
-      'rất thường xuyên': 4,
-      'rất phù hợp': 4,
-      'gặp gỡ bạn bè': 4,
-      'rất hào hứng': 4,
-      'đó là đam mê của tôi': 4,
-      'luôn sẵn sàng dẫn dắt': 4,
-      'chi tiết rõ ràng': 4,
-      'logic và phân tích': 4,
-      'kế hoạch rõ ràng': 4,
-      'tuân theo thời hạn và kế hoạch': 4,
-      'kinh nghiệm và chi tiết': 4,
-      'complete soon': 4,
-      'thực tế': 4,
-      'yêu thích': 4,
-      'cách nhìn tổng quát': 3,
-      'linh hoạt thay đổi': 0,
-      'không quá quan tâm': 1
-    };
-
-    return mapping[lower] ?? 2;
-  };
-
-  const getSumScore = (keys) =>
-    keys.reduce((sum, id) => sum + normalizeAnswer(answers[id]), 0);
-
-  const riasecScores = {
-    Realistic:     getSumScore(['q1', 'q2', 'q3', 'q4', 'q5']),
-    Investigative: getSumScore(['q6', 'q7', 'q8', 'q9', 'q10']),
-    Artistic:      getSumScore(['q11', 'q12', 'q13', 'q14', 'q15']),
-    Social:        getSumScore(['q16', 'q17', 'q18', 'q19', 'q20']),
-    Enterprising:  getSumScore(['q21', 'q22', 'q23', 'q24', 'q25']),
-    Conventional:  getSumScore(['q26', 'q27', 'q28', 'q29', 'q30']),
-  };
-
-  // Phase 2 — ARCS motivation scores (q35–q38, scale 1-5)
-  const arcsScores = {
-    attention:    normalizeAnswer(answers['q35']),
-    relevance:    normalizeAnswer(answers['q36']),
-    confidence:   normalizeAnswer(answers['q37']),
-    satisfaction: normalizeAnswer(answers['q38']),
-  };
-  const motivationBonus = Object.values(arcsScores).reduce((s, v) => s + v, 0); // 0–16
-
-  // Phase 2 — Work environment preference (q39, q40)
-  const prefersStructure = ['quy trình cố định rõ ràng', 'thiên về quy trình'].includes(
-    String(answers['q40'] || '').toLowerCase()
-  );
-
-  // Boost Conventional if structured preference
-  if (prefersStructure) riasecScores.Conventional += 2;
-
-  // Derive Holland Code — top 3 groups
-  const sortedRIASEC = Object.entries(riasecScores).sort((a, b) => b[1] - a[1]);
-  const hollandCode = sortedRIASEC.slice(0, 3).map(([letter]) => letter[0]).join('');
-  const topCategory = sortedRIASEC[0][0];
-
-  const categoryBoost = (careerCategory) => {
-    const normalize = (value) => Math.max(0, Math.min(1, value / 20)); // max 5 câu × 4 điểm = 20
-    const r = normalize(riasecScores.Realistic);
-    const i = normalize(riasecScores.Investigative);
-    const a = normalize(riasecScores.Artistic);
-    const s = normalize(riasecScores.Social);
-    const e = normalize(riasecScores.Enterprising);
-    const c = normalize(riasecScores.Conventional);
-    const category = normalizeKeyword(careerCategory);
-
-    if (category.includes('cong nghe') || category.includes('phan mem')) {
-      return r * 0.25 + i * 0.45 + c * 0.2 + a * 0.1;
-    }
-    if (category.includes('tri tue nhan tao') || category.includes('ai') || category.includes('khoa hoc du lieu')) {
-      return i * 0.6 + r * 0.2 + c * 0.15 + a * 0.05;
-    }
-    if (category.includes('dien tu') || category.includes('vien thong') || category.includes('tu dong') || category.includes('ban dan')) {
-      return r * 0.45 + i * 0.35 + c * 0.15 + e * 0.05;
-    }
-    if (category.includes('thiet ke') || category.includes('nghe thuat')) {
-      return a * 0.6 + s * 0.2 + i * 0.1 + r * 0.1;
-    }
-    if (category.includes('kinh te') || category.includes('kinh doanh') || category.includes('quan ly') || category.includes('du lich')) {
-      return e * 0.5 + s * 0.25 + c * 0.15 + a * 0.1;
-    }
-    if (category.includes('luat')) {
-      return e * 0.35 + c * 0.3 + s * 0.2 + i * 0.15;
-    }
-    if (category.includes('y te') || category.includes('sinh hoc') || category.includes('thuc pham') || category.includes('nong lam')) {
-      return i * 0.45 + s * 0.25 + r * 0.2 + c * 0.1;
-    }
-    if (category.includes('giao duc') || category.includes('xa hoi')) {
-      return s * 0.55 + a * 0.2 + e * 0.15 + c * 0.1;
-    }
-    if (category.includes('van hoa') || category.includes('lich su') || category.includes('ngon ngu')) {
-      return a * 0.4 + s * 0.25 + i * 0.2 + c * 0.15;
-    }
-    if (category.includes('hang hai')) {
-      return r * 0.45 + c * 0.25 + i * 0.2 + e * 0.1;
-    }
-
-    switch (careerCategory) {
-      case 'Công nghệ':
-        return r * 0.4 + i * 0.4 + c * 0.2;
-      case 'Trí tuệ nhân tạo':
-        return i * 0.55 + r * 0.3 + c * 0.15;
-      case 'Thiết kế':
-        return a * 0.6 + s * 0.25 + r * 0.15;
-      case 'Quản lý & Kinh doanh':
-        return e * 0.55 + s * 0.3 + c * 0.15;
-      default:
-        return 0.18;
-    }
-  };
-
-  const getSubjectBonus = (careerCategory) => {
-    const math = clampNumber(subjects.math, 0, 10, 8);
-    const physics = clampNumber(subjects.physics, 0, 10, 8);
-    const english = clampNumber(subjects.english, 0, 10, 8);
-    const literature = clampNumber(subjects.literature, 0, 10, 8);
-    const chemistry = clampNumber(subjects.chemistry, 0, 10, 8);
-    const biology = clampNumber(subjects.biology, 0, 10, 8);
-    const history = clampNumber(subjects.history, 0, 10, 8);
-    const geography = clampNumber(subjects.geography, 0, 10, 8);
-
-    const techBase = (math + physics + english) / 3;
-    const designBase = (literature + english) / 2;
-    const businessBase = (math + english + literature) / 3;
-    const scienceBase = (math + chemistry + biology) / 3;
-    const socialBase = (literature + history + geography + english) / 4;
-
-    const toBonus = (score) => Math.round((score - 7) * 1.5);
-
-    switch (careerCategory) {
-      case 'Công nghệ':
-      case 'Trí tuệ nhân tạo':
-        return toBonus(techBase);
-      case 'Thiết kế':
-        return toBonus(designBase);
-      case 'Quản lý & Kinh doanh':
-        return toBonus(businessBase);
-      case 'Khoa học':
-      case 'Y tế':
-        return toBonus(scienceBase);
-      case 'Xã hội':
-      case 'Giáo dục':
-        return toBonus(socialBase);
-      default:
-        return 0;
-    }
-  };
-
-  const getSkillBonus = (careerCategory) => {
-    const scoreByCategory = {
-      'Công nghệ': skillScores.technical * 0.5 + skillScores.analytical * 0.4 + skillScores.communication * 0.1,
-      'Trí tuệ nhân tạo': skillScores.analytical * 0.55 + skillScores.technical * 0.4 + skillScores.creative * 0.05,
-      'Thiết kế': skillScores.creative * 0.55 + skillScores.communication * 0.25 + skillScores.technical * 0.2,
-      'Quản lý & Kinh doanh': skillScores.leadership * 0.45 + skillScores.communication * 0.35 + skillScores.analytical * 0.2,
-    }[careerCategory] || (
-      skillScores.analytical * 0.25 +
-      skillScores.creative * 0.2 +
-      skillScores.communication * 0.25 +
-      skillScores.leadership * 0.15 +
-      skillScores.technical * 0.15
-    );
-
-    return Math.round((scoreByCategory - 50) / 12);
-  };
-
-  const getPreferenceBonus = (career) => {
-    const title = normalizeKeyword(career.title);
-    const category = normalizeKeyword(career.category);
-    const skillText = Array.isArray(career.skills)
-      ? career.skills.map(normalizeKeyword).join(' ')
-      : '';
-
-    let bonus = 0;
-    if (majorInterest) {
-      const matchesMajorInterest =
-        title.includes(majorInterest) ||
-        majorInterest.includes(title) ||
-        category.includes(majorInterest) ||
-        skillText.includes(majorInterest);
-      if (matchesMajorInterest) bonus += 5;
-    }
-
-    const careerId = normalizeKeyword(career.id || career._id);
-    const matchesFavorite = favoriteSignals.some((favorite) =>
-      favorite === careerId ||
-      favorite === title ||
-      title.includes(favorite) ||
-      favorite.includes(title)
-    );
-    if (matchesFavorite) bonus += 7;
-
-    return bonus;
-  };
-
-  const extrasByMBTI = (careerCategory) => {
-    let bonus = 0;
-    const category = normalizeKeyword(careerCategory);
-    if ((category.includes('cong nghe') || category.includes('ai')) && hollandCode.includes('I')) bonus += 2;
-    if ((category.includes('thiet ke') || category.includes('nghe thuat')) && hollandCode.includes('A')) bonus += 2;
-    if ((category.includes('kinh te') || category.includes('quan ly')) && hollandCode.includes('E')) bonus += 2;
-    if ((category.includes('giao duc') || category.includes('y te')) && hollandCode.includes('S')) bonus += 2;
-    bonus += Math.round(motivationBonus / 6);
-    return bonus;
-  };
-
-  const matchedCareers = [...fallbackCareers]
-    .map((career) => {
-      const boost = categoryBoost(career.category);
-      const suitability = Math.min(
-        97,
-        Math.max(
-          30,
-          Math.round(
-            42 +
-            boost * 42 +
-            extrasByMBTI(career.category) +
-            getSubjectBonus(career.category) +
-            getSkillBonus(career.category) +
-            getPreferenceBonus(career)
-          )
-        )
-      );
-      return { ...career, suitability };
-    })
-    .sort((a, b) => b.suitability - a.suitability);
-
-  const getArchetypeLabel = () => {
-    switch (topCategory) {
-      case 'Realistic':      return 'Nhà Thực Hành Kỹ Thuật';
-      case 'Investigative':  return 'Nhà Khám Phá Phân Tích';
-      case 'Artistic':       return 'Nhà Sáng Tạo Trải Nghiệm';
-      case 'Social':         return 'Nhà Hỗ Trợ Đồng Cảm';
-      case 'Enterprising':   return 'Nhà Khởi Nghiệp Lãnh Đạo';
-      case 'Conventional':   return 'Nhà Quản Trị Chi Tiết';
-      default:               return 'Nhà Định Hướng Tích Hợp';
-    }
-  };
-
-  const archetypeLabel = getArchetypeLabel();
-  const archetype = `${archetypeLabel} (${hollandCode})`;
-  const description = `Mã Holland của bạn là **${hollandCode}** — phản ánh khuynh hướng ${archetypeLabel.toLowerCase()}. Ba nhóm tính cách nổi trội nhất của bạn là ${sortedRIASEC.slice(0,3).map(([k,v]) => `${k} (${v}đ)`).join(', ')}. Sự kết hợp này định hình phong cách làm việc và môi trường phù hợp nhất với bạn.`;
-  const favoriteInsight = majorInterest || favoriteSignals.length
-    ? ` Mình cũng đã cân nhắc ngành bạn quan tâm/lưu trong hồ sơ để không bỏ qua định hướng cá nhân.`
-    : '';
-  const insights = `Dựa trên mã Holland **${hollandCode}**, bạn nên ưu tiên các ngành nghề phù hợp với nhóm ${topCategory}. Điểm động lực ARCS của bạn cho thấy ${arcsScores.confidence >= 2 ? 'bạn khá tự tin' : 'bạn cần củng cố thêm niềm tin'} vào năng lực bản thân.${favoriteInsight} Hồ sơ điểm số và kỹ năng tự đánh giá được dùng để điều chỉnh độ phù hợp, vì vậy hãy cập nhật chúng thường xuyên để kết quả chính xác hơn.`;
-
-  const result = {
-    archetype,
-    hollandCode,
-    description,
-    suitabilityScore: clampNumber(Math.round(matchedCareers[0]?.suitability || 0), 0, 100, 0),
-    careers: matchedCareers,
-    insights,
-  };
-
-  const cacheKey = generateCacheKey({
-    ...userData,
-    titles: fallbackCareers.map((career) => career.title)
-  });
-  cacheSet(cacheKey, result);
-
-  return result;
 };
 
 /**
  * AI Chat Advisor with context-awareness + caching + retry
  */
-const getChatResponse = async (chatHistory, userProfile) => {
+const getChatResponse = async (chatHistory, userProfile, options = {}) => {
   // Khai báo ở ngoài try để fallback có thể dùng
   const lastMessage = chatHistory?.[chatHistory.length - 1]?.content || "";
+  const activeModel = options.aiModel || "gemini-2.5-flash";
+  const adminPromptTemplate = toTrimmedString(options.systemPromptTemplate);
 
   try {
     // Check cache first
     const lastUserMsg = lastMessage;
-    const cacheKey = generateCacheKey({ lastUserMsg, userId: userProfile?.email });
+    const cacheKey = generateCacheKey({
+      lastUserMsg,
+      userId: userProfile?.email,
+      history: Array.isArray(chatHistory) ? chatHistory.slice(-20).map((message) => ({
+        role: message?.role,
+        content: toTrimmedString(message?.content).slice(0, 500),
+      })) : [],
+      aiModel: activeModel,
+      systemPromptTemplate: adminPromptTemplate,
+    });
     const cached = cacheGet(cacheKey);
     if (cached) {
-      console.log("✓ Cache HIT for chat response");
+      debugLog("✓ Cache HIT for chat response");
       return cached;
     }
 
@@ -1164,7 +989,6 @@ const getChatResponse = async (chatHistory, userProfile) => {
 
     const normalizedHistory = Array.isArray(chatHistory)
       ? chatHistory
-          .slice(-5)
           .map((message) => ({
             role: message?.role === "ai" || message?.role === "assistant" ? "assistant" : "user",
             content: toTrimmedString(message?.content).slice(0, 2000)
@@ -1174,6 +998,8 @@ const getChatResponse = async (chatHistory, userProfile) => {
 
     const chatPrompt = `
 Bạn là "EduMatch AI Advisor" - chuyên gia tư vấn hướng nghiệp cho học sinh cấp 3 Việt Nam.
+
+${adminPromptTemplate ? `**CẤU HÌNH TỪ ADMIN:**\n${adminPromptTemplate}\n` : ""}
 
 **NGUYÊN TẮC HÀNH ĐỘNG:**
 1. Lắng nghe, hiểu, động viên, hướng dẫn
@@ -1194,7 +1020,7 @@ Hãy trả lời đối với câu hỏi cuối cùng của học sinh một cá
 
     if (genAI) {
       try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: activeModel });
 
         const result = await callGeminiWithRetry(async () => {
           return await model.generateContent(chatPrompt);
@@ -1210,7 +1036,7 @@ Hãy trả lời đối với câu hỏi cuối cùng của học sinh một cá
         const inputTokens = estimateTokens(chatPrompt);
         const outputTokens = estimateTokens(responseText);
         const cost = estimateCost(inputTokens, outputTokens);
-        console.log(`[Chat] Tokens: ${inputTokens + outputTokens}, Cost: $${cost.toFixed(4)}`);
+        debugLog(`[Chat] Tokens: ${inputTokens + outputTokens}, Cost: $${cost.toFixed(4)}`);
 
         return responseText;
       } catch (err) {
@@ -1219,10 +1045,10 @@ Hãy trả lời đối với câu hỏi cuối cùng của học sinh một cá
     }
 
     // Fallback chat responses
-    console.log("Using local fallback chat agent...");
+    debugLog("Using local fallback chat agent...");
   } catch (chatErr) {
     console.warn("Chat API failed:", chatErr.message);
-    console.log("Falling back to local chat engine...");
+    debugLog("Falling back to local chat engine...");
   }
 
   // LOCAL FALLBACK - Rule-based chat responses

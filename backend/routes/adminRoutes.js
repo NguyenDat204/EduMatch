@@ -6,6 +6,9 @@ const {
   deleteUser,
   getSystemAnalytics,
   getAllSurveyHistories,
+  getAllRecommendationFeedbacks,
+  getAllPayments,
+  getAllChatHistories,
   getSystemSettings,
   updateSystemSettings,
   getUserActivity,
@@ -18,6 +21,9 @@ router.delete("/users/:id", protect, admin, deleteUser);
 router.get("/users/:id/activity", protect, admin, getUserActivity);
 router.get("/analytics", protect, admin, getSystemAnalytics);
 router.get("/surveys", protect, admin, getAllSurveyHistories);
+router.get("/recommendation-feedbacks", protect, admin, getAllRecommendationFeedbacks);
+router.get("/payments", protect, admin, getAllPayments);
+router.get("/chats", protect, admin, getAllChatHistories);
 router.get("/settings", protect, admin, getSystemSettings);
 router.put("/settings", protect, admin, updateSystemSettings);
 

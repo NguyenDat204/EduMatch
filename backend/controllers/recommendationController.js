@@ -31,7 +31,11 @@ const getRecommendations = async (req, res) => {
           ? c.skills.map((skill) => sanitizeText(skill, 80)).filter(Boolean)
           : [],
         suitability: Number.isFinite(c.suitability) ? c.suitability : 0,
+        meetsSurveyThreshold: Boolean(c.meetsSurveyThreshold),
         category: sanitizeText(c.category || '', 100),
+        scoreBreakdown: c.scoreBreakdown && typeof c.scoreBreakdown === 'object'
+          ? c.scoreBreakdown
+          : {},
         roadmap: Array.isArray(c.roadmap)
           ? c.roadmap
               .map((step) => ({
@@ -50,9 +54,21 @@ const getRecommendations = async (req, res) => {
 
     const safeRecommendations = {
       archetype: sanitizeText(recommendations?.archetype || '', 200),
+      hollandCode: sanitizeText(recommendations?.hollandCode || '', 20),
       description: sanitizeText(recommendations?.description || '', 2000),
       suitabilityScore: Number(recommendations?.suitabilityScore || 0),
       insights: sanitizeText(recommendations?.insights || '', 2000),
+      riasecScores: recommendations?.riasecScores && typeof recommendations.riasecScores === 'object'
+        ? recommendations.riasecScores
+        : {},
+      scoreBreakdown: recommendations?.scoreBreakdown && typeof recommendations.scoreBreakdown === 'object'
+        ? recommendations.scoreBreakdown
+        : {},
+      confidence: recommendations?.confidence && typeof recommendations.confidence === 'object'
+        ? recommendations.confidence
+        : {},
+      method: sanitizeText(recommendations?.method || '', 100),
+      surveyThreshold: Number(recommendations?.surveyThreshold || 0),
       careers: Array.isArray(recommendations?.careers)
         ? recommendations.careers.map(sanitizeCareer).filter(Boolean).slice(0, 12)
         : [],
@@ -71,6 +87,12 @@ const getRecommendations = async (req, res) => {
             description: safeRecommendations.description,
             suitabilityScore: safeRecommendations.suitabilityScore,
             insights: safeRecommendations.insights,
+            hollandCode: safeRecommendations.hollandCode,
+            riasecScores: safeRecommendations.riasecScores,
+            scoreBreakdown: safeRecommendations.scoreBreakdown,
+            confidence: safeRecommendations.confidence,
+            method: safeRecommendations.method,
+            surveyThreshold: safeRecommendations.surveyThreshold,
             careers: safeRecommendations.careers,
             answers: userData.answers || {},
             updatedAt: new Date()

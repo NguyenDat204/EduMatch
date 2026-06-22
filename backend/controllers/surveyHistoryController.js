@@ -25,7 +25,11 @@ const saveSurveyResult = async (req, res) => {
           ? c.skills.map((skill) => sanitizeText(skill, 80)).filter(Boolean)
           : [],
         suitability: Number.isFinite(c.suitability) ? c.suitability : 0,
+        meetsSurveyThreshold: Boolean(c.meetsSurveyThreshold),
         category: sanitizeText(c.category || '', 100),
+        scoreBreakdown: c.scoreBreakdown && typeof c.scoreBreakdown === 'object'
+          ? c.scoreBreakdown
+          : {},
         roadmap: Array.isArray(c.roadmap)
           ? c.roadmap
               .map((step) => ({
@@ -44,9 +48,21 @@ const saveSurveyResult = async (req, res) => {
 
     const safeResult = result && typeof result === 'object' ? {
       archetype: sanitizeText(result.archetype || '' , 200),
+      hollandCode: sanitizeText(result.hollandCode || '' , 20),
       description: sanitizeText(result.description || '' , 2000),
       suitabilityScore: Number(result.suitabilityScore || 0),
       insights: sanitizeText(result.insights || '' , 2000),
+      riasecScores: result.riasecScores && typeof result.riasecScores === 'object'
+        ? result.riasecScores
+        : {},
+      scoreBreakdown: result.scoreBreakdown && typeof result.scoreBreakdown === 'object'
+        ? result.scoreBreakdown
+        : {},
+      confidence: result.confidence && typeof result.confidence === 'object'
+        ? result.confidence
+        : {},
+      method: sanitizeText(result.method || '', 100),
+      surveyThreshold: Number(result.surveyThreshold || 0),
       careers: Array.isArray(result.careers) ? result.careers.map(sanitizeCareer).filter(Boolean).slice(0,12) : [],
     } : {};
 
@@ -78,7 +94,7 @@ const getSurveyHistory = async (req, res) => {
   try {
     const records = await SurveyHistory.find({ userId: req.user._id })
       .sort({ completedAt: -1 })
-      .select("title result.archetype result.suitabilityScore result.description result.insights result.careers completedAt");
+      .select("title result.archetype result.hollandCode result.suitabilityScore result.description result.insights result.riasecScores result.scoreBreakdown result.confidence result.method result.careers completedAt");
 
     res.json({ success: true, data: records });
   } catch (error) {
