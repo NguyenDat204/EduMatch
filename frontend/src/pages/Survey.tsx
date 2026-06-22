@@ -160,19 +160,20 @@ export const Survey = () => {
   const currentQuestion = questions[currentStep];
   const currentAnswer = currentQuestion ? answers[currentQuestion.id] : undefined;
 
-  const advanceAfterAnswer = (newAnswers: Record<string, string | number>) => {
-    const nextStep = Math.min(totalSteps - 1, currentStep + 1);
-    if (nextStep !== currentStep) {
-      setCurrentStep(nextStep);
-    }
-    saveDraft(newAnswers, nextStep);
-  };
+  // const advanceAfterAnswer = (newAnswers: Record<string, string | number>) => {
+  //   const nextStep = Math.min(totalSteps - 1, currentStep + 1);
+  //   if (nextStep !== currentStep) {
+  //     setCurrentStep(nextStep);
+  //   }
+  //   saveDraft(newAnswers, nextStep);
+  // };
 
   const handleSelect = (option: string) => {
     if (!currentQuestion) return;
     const newAnswers = { ...answers, [currentQuestion.id]: option };
     setAnswers(newAnswers);
-    advanceAfterAnswer(newAnswers);
+    // advanceAfterAnswer(newAnswers);
+    saveDraft(newAnswers, currentStep);
     setHasDraft(true);
   };
 
@@ -180,7 +181,8 @@ export const Survey = () => {
     if (!currentQuestion) return;
     const newAnswers = { ...answers, [currentQuestion.id]: value };
     setAnswers(newAnswers);
-    advanceAfterAnswer(newAnswers);
+    // advanceAfterAnswer(newAnswers);
+    saveDraft(newAnswers, currentStep);
     setHasDraft(true);
   };
 
