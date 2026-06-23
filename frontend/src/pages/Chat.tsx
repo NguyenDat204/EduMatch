@@ -7,6 +7,7 @@ import { DashboardLayout } from '../layouts';
 import { ChatMessage } from '../components/ui';
 import { aiApiService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
+import { trackEvent } from '../services/analytics';
 
 interface Message {
   role: 'user' | 'ai';
@@ -129,6 +130,10 @@ export const Chat = () => {
 
     const userMsg: Message = { role: 'user', content: input, timestamp: new Date().toISOString() };
     const updated = [...messages, userMsg];
+    trackEvent(conversationId ? 'ai_chat_message_send' : 'ai_chat_start', {
+      has_personality_result: !!user?.personalityTest?.archetype,
+      message_count_before_send: messages.filter((msg) => msg.role === 'user').length,
+    });
     setMessages(updated);
     setInput('');
     setIsTyping(true);

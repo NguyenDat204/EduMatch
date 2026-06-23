@@ -6,6 +6,7 @@ import { paymentService, planService } from '../services/api';
 import type { PaymentCreateResponse } from '../services/api';
 import type { SubscriptionPlan } from '../types';
 import { useNavigate } from 'react-router-dom';
+import { trackEvent } from '../services/analytics';
 
 export const Upgrade = () => {
   const { user } = useAuth();
@@ -144,9 +145,18 @@ export const Upgrade = () => {
     setError(null);
     setLoading(true);
     setSelectedPlan(plan);
+    trackEvent('upgrade_click', {
+      source: 'upgrade_page',
+      plan_slug: plan.slug,
+      plan_price: plan.price,
+    });
     try {
       const res = await paymentService.createPayment(plan._id);
       setPaymentData(res);
+      trackEvent('payment_start', {
+        plan_slug: plan.slug,
+        amount: plan.price,
+      });
       setTimeLeft(900); // 15 mins
       setPollingActive(true);
       setCheckingStatus(false);
