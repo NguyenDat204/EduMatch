@@ -17,31 +17,33 @@ const GTM_CONTAINER_ID = import.meta.env.VITE_GTM_CONTAINER_ID;
 const CLARITY_PROJECT_ID = import.meta.env.VITE_CLARITY_PROJECT_ID;
 const MANTLE_APP_ID = import.meta.env.VITE_MANTLE_APP_ID;
 const isProduction = import.meta.env.PROD;
+let analyticsInitialized = false;
 
-const appendScript = (id: string, src: string, async = true) => {
-  if (typeof document === 'undefined' || document.getElementById(id)) return;
+const appendScript = (id: string, src: string, async = true): HTMLScriptElement | null => {
+  if (typeof document === 'undefined') return null;
+  const existingScript = document.getElementById(id);
+  if (existingScript instanceof HTMLScriptElement) return existingScript;
 
   const script = document.createElement('script');
   script.id = id;
   script.src = src;
   script.async = async;
   document.head.appendChild(script);
+  return script;
 };
 
 export const initAnalytics = () => {
   if (typeof window === 'undefined') return;
+  if (analyticsInitialized) return;
+  analyticsInitialized = true;
 
   if (GA_MEASUREMENT_ID) {
     window.dataLayer = window.dataLayer || [];
     window.gtag = window.gtag || function gtagShim(...args: unknown[]) {
       window.dataLayer?.push(args);
     };
-    window.gtag('js', new Date());
-    window.gtag('config', GA_MEASUREMENT_ID, {
-      send_page_view: false,
-      anonymize_ip: true,
-    });
     appendScript('ga4-script', `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`);
+    window.gtag('js', new Date());
   }
 
   if (GTM_CONTAINER_ID) {
@@ -71,11 +73,14 @@ export const initAnalytics = () => {
 export const trackPageView = (path: string, title = document.title) => {
   if (typeof window === 'undefined') return;
 
-  window.gtag?.('event', 'page_view', {
-    page_path: path,
-    page_location: window.location.href,
-    page_title: title,
-  });
+  if (GA_MEASUREMENT_ID) {
+    window.gtag?.('config', GA_MEASUREMENT_ID, {
+      page_path: path,
+      page_location: window.location.href,
+      page_title: title,
+      anonymize_ip: true,
+    });
+  }
 
   window.dataLayer?.push({
     event: 'page_view',
