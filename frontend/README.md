@@ -10,6 +10,20 @@ VITE_GA4_MEASUREMENT_ID=G-XXXXXXXXXX
 
 The app injects the GA4 script only when this variable is present and tracks page views automatically on React Router navigation.
 
+To show GA4 data in the admin analytics page, set these backend environment variables and grant the service account Viewer access to the GA4 property:
+
+```env
+GA4_PROPERTY_ID=123456789
+GA4_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
+GA4_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+Alternatively, provide the service account JSON as one variable:
+
+```env
+GA4_SERVICE_ACCOUNT_JSON={"client_email":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"}
+```
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

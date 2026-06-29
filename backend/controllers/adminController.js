@@ -9,6 +9,7 @@ const UserInteraction = require("../models/UserInteraction");
 const Payment = require("../models/Payment");
 const ChatHistory = require("../models/ChatHistory");
 const RecommendationFeedback = require("../models/RecommendationFeedback");
+const { getGa4Analytics } = require("../services/ga4Service");
 const {
   DEFAULT_SETTINGS,
   getSystemSettings: getRuntimeSystemSettings,
@@ -160,6 +161,7 @@ const getSystemAnalytics = async (req, res) => {
       recentSignups,
       recentFeedbacks,
       recentSurveys,
+      ga4Analytics,
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ role: "student" }),
@@ -430,6 +432,7 @@ const getSystemAnalytics = async (req, res) => {
         .populate("userId", "name email academicInfo")
         .sort({ completedAt: -1 })
         .limit(5),
+      getGa4Analytics(period.key),
     ]);
 
     const averageRating = ratingAggregate.length > 0 ? Number(ratingAggregate[0].averageRating.toFixed(1)) : 5.0;
@@ -551,6 +554,7 @@ const getSystemAnalytics = async (req, res) => {
         recentSurveys,
         recentRecommendationFeedbacks,
         recentPayments,
+        ga4: ga4Analytics,
       }
     });
   } catch (error) {

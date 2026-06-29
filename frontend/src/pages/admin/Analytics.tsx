@@ -30,6 +30,46 @@ interface TopCareer {
   category: string;
 }
 
+interface Ga4TrendPoint {
+  date: string;
+  label: string;
+  activeUsers: number;
+  sessions: number;
+  pageViews: number;
+  events: number;
+}
+
+interface Ga4Data {
+  configured: boolean;
+  propertyId?: string;
+  error?: string;
+  summary: {
+    activeUsers: number;
+    newUsers: number;
+    sessions: number;
+    pageViews: number;
+    events: number;
+    engagementRate: number;
+    averageSessionDuration: number;
+  } | null;
+  realtime: {
+    activeUsers: number;
+  };
+  trends: Ga4TrendPoint[];
+  topPages: {
+    path: string;
+    title: string;
+    pageViews: number;
+    activeUsers: number;
+    events: number;
+  }[];
+  topEvents: {
+    name: string;
+    count: number;
+    activeUsers: number;
+  }[];
+}
+
 interface StatsData {
   counts: {
     users: number;
@@ -109,6 +149,7 @@ interface StatsData {
     interestedCount: number;
     notInterestedCount: number;
   }[];
+  ga4?: Ga4Data;
   recentSignups: any[];
   recentFeedbacks: any[];
   recentSurveys: any[];
@@ -132,6 +173,12 @@ const fmt = (d: string) => {
 
 const percent = (value: number, total: number) => total > 0 ? Math.round((value / total) * 100) : 0;
 const money = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value || 0);
+const duration = (seconds: number) => {
+  if (!seconds) return '0s';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+};
 
 const StatCard = ({ label, value, icon: Icon, accent, sub }: { label: string; value: number | string; icon: any; accent: string; sub?: string }) => (
   <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm">
@@ -404,6 +451,121 @@ const CareerCategoryCoverage = ({ data }: { data: DistributionPoint[] }) => {
   );
 };
 
+const Ga4Panel = ({ ga4, periodLabel }: { ga4?: Ga4Data; periodLabel: string }) => {
+  if (!ga4) {
+    return (
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
+        <div className="flex items-start gap-3">
+          <AlertCircle size={18} className="text-amber-500 mt-0.5 shrink-0" />
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">GA4 chưa có trong response</h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              Backend hiện tại chưa trả dữ liệu GA4. Hãy restart/deploy backend mới và kiểm tra VITE_API_URL đang trỏ đúng backend đó.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!ga4.configured || ga4.error) {
+    return (
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm">
+        <div className="flex items-start gap-3">
+          <AlertCircle size={18} className="text-amber-500 mt-0.5 shrink-0" />
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">GA4 chưa sẵn sàng</h3>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              {ga4.error || 'Backend cần GA4_PROPERTY_ID và service account có quyền Viewer trên GA4 property.'}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const summary = ga4.summary;
+  const pageViewTrend = ga4.trends.map((item) => ({
+    date: item.date,
+    label: item.label,
+    value: item.pageViews,
+  }));
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+            <BarChart3 size={18} className="text-indigo-500" /> Google Analytics 4
+          </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Property {ga4.propertyId} · {periodLabel}</p>
+        </div>
+        <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          {ga4.realtime.activeUsers} realtime
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+        <StatCard label="Active users" value={summary?.activeUsers || 0} icon={Users} accent="bg-sky-50 text-sky-600 dark:bg-sky-950/30" sub="GA4 users" />
+        <StatCard label="New users" value={summary?.newUsers || 0} icon={Star} accent="bg-amber-50 text-amber-600 dark:bg-amber-950/30" sub="Người dùng mới" />
+        <StatCard label="Sessions" value={summary?.sessions || 0} icon={Activity} accent="bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30" sub="Phiên truy cập" />
+        <StatCard label="Page views" value={summary?.pageViews || 0} icon={FileText} accent="bg-teal-50 text-teal-600 dark:bg-teal-950/30" sub="Lượt xem trang" />
+        <StatCard label="Events" value={summary?.events || 0} icon={Gauge} accent="bg-violet-50 text-violet-600 dark:bg-violet-950/30" sub="Tổng event" />
+        <StatCard label="Engagement" value={`${summary?.engagementRate || 0}%`} icon={TrendingUp} accent="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30" sub="Tỷ lệ tương tác" />
+        <StatCard label="Avg session" value={duration(summary?.averageSessionDuration || 0)} icon={RefreshCw} accent="bg-rose-50 text-rose-600 dark:bg-rose-950/30" sub="Thời lượng TB" />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+        <LineChart title="GA4 page views" data={pageViewTrend} color="text-indigo-500" periodLabel={periodLabel} />
+
+        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+            <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+              <FileText size={15} className="text-teal-500" /> Top pages
+            </h3>
+          </div>
+          <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+            {ga4.topPages.length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400">Chưa có dữ liệu GA4</p>
+            ) : ga4.topPages.map((page) => (
+              <div key={`${page.path}-${page.title}`} className="grid grid-cols-[1fr_auto] gap-3 px-5 py-3 items-center">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{page.title}</p>
+                  <p className="text-xs text-slate-400 truncate">{page.path}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-black text-slate-900 dark:text-white">{page.pageViews}</p>
+                  <p className="text-[11px] text-slate-400">{page.activeUsers} users</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+        <div className="hidden md:grid grid-cols-[1fr_120px_120px] gap-4 px-5 py-3 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase tracking-wider text-slate-500">
+          <span>Event</span>
+          <span>Số lần</span>
+          <span>Users</span>
+        </div>
+        <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {ga4.topEvents.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-400">Chưa có event GA4</p>
+          ) : ga4.topEvents.map((event) => (
+            <div key={event.name} className="grid grid-cols-1 md:grid-cols-[1fr_120px_120px] gap-2 md:gap-4 px-5 py-3 items-center">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{event.name}</p>
+              <p className="text-sm font-bold text-indigo-600">{event.count}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{event.activeUsers}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const Analytics = () => {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [period, setPeriod] = useState<AnalyticsPeriod>('month');
@@ -508,6 +670,8 @@ export const Analytics = () => {
         <StatCard label="Trắc nghiệm" value={s.surveys} icon={FileText} accent="bg-teal-50 text-teal-600 dark:bg-teal-950/30" sub={`${stats?.completionRate || 0}% user`} />
         <StatCard label="Rating" value={`${stats?.averageRating || 5.0}★`} icon={MessageSquare} accent="bg-rose-50 text-rose-600 dark:bg-rose-950/30" sub={`${s.feedbacks} phản hồi`} />
       </div>
+
+      <Ga4Panel ga4={stats?.ga4} periodLabel={periodLabel} />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
