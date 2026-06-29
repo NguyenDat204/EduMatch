@@ -3,6 +3,7 @@ import { AlertCircle, CheckCircle2, MessageSquare, Send, Star } from 'lucide-rea
 import { DashboardLayout } from '../layouts';
 import { useAuth } from '../hooks/useAuth';
 import { feedbackService } from '../services/api';
+import { trackEvent } from '../services/analytics';
 
 export const Feedback = () => {
   const { user } = useAuth();
@@ -22,6 +23,7 @@ export const Feedback = () => {
     try {
       const res = await feedbackService.submitFeedback(user.name, user.email, message.trim(), rating);
       if (res.success) {
+        trackEvent('feedback_submit', { rating });
         setSuccess(true);
         setMessage('');
         setRating(5);

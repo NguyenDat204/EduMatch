@@ -13,6 +13,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../layouts';
 import { useAuth } from '../hooks/useAuth';
 import { careerService } from '../services/api';
+import { trackEvent } from '../services/analytics';
 
 export const CareerDetails = () => {
   const { id } = useParams();
@@ -133,6 +134,10 @@ export const CareerDetails = () => {
         const hasFavorite = response.data.includes(targetId);
         setIsSaved(hasFavorite);
         updateUserInState({ ...user, favorites: response.data });
+        trackEvent(hasFavorite ? 'career_save' : 'career_unsave', {
+          career_id: targetId,
+          career_category: career.category,
+        });
       }
     } catch (err) {
       console.error("Favorite toggle failed:", err);

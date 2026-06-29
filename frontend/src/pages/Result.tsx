@@ -6,6 +6,7 @@ import { CareerCard } from '../components/ui';
 import { aiApiService, recommendationFeedbackService, surveyHistoryService } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useAIStatus } from '../hooks/useAIStatus';
+import { trackEvent } from '../services/analytics';
 
 interface IndustryResult {
   archetype: string;
@@ -58,6 +59,7 @@ export const Result = () => {
   const [feedbackStatus, setFeedbackStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   const fetchRef = useRef(false);
+  const viewedRef = useRef(false);
   const { setAIRunning } = useAIStatus();
 
   useEffect(() => {
@@ -185,6 +187,18 @@ export const Result = () => {
     fetchRecommendations();
   }, [authLoading, user, location.state, setAIRunning, updateUserInState, navigate]);
 
+  useEffect(() => {
+    if (!result || viewedRef.current) return;
+    viewedRef.current = true;
+    trackEvent('recommendation_view', {
+      holland_code: result.hollandCode,
+      suitability_score: result.suitabilityScore,
+      confidence_score: result.confidence?.score,
+      confidence_level: result.confidence?.level,
+      career_count: result.careers?.length || 0,
+    });
+  }, [result]);
+
   const retrySave = async () => {
     if (!result) return;
     setSavedError(null);
@@ -226,6 +240,10 @@ export const Result = () => {
         perceivedAccuracy: feedbackRating,
         topCareerFit: careerFit,
         comment: feedbackComment,
+      });
+      trackEvent('recommendation_feedback_submit', {
+        rating: feedbackRating,
+        top_career_fit: careerFit,
       });
       setFeedbackStatus('saved');
     } catch (e) {
@@ -342,7 +360,10 @@ export const Result = () => {
               </h1>
               <p className="text-slate-300 text-sm md:text-base mb-6 leading-relaxed">{result.description}</p>
               <div className="flex flex-wrap gap-3">
-                <button onClick={() => navigate('/chat')} className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-500 text-white font-semibold rounded-lg transition-colors text-sm">
+                <button onClick={() => {
+                  trackEvent('ai_chat_start', { source: 'recommendation_result' });
+                  navigate('/chat');
+                }} className="flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-500 text-white font-semibold rounded-lg transition-colors text-sm">
                   Tư vấn với AI Advisor <ArrowRight size={15} />
                 </button>
                 <button
@@ -516,7 +537,10 @@ export const Result = () => {
             <div className="bg-navy-900 text-white rounded-xl p-5 border border-navy-700">
               <h3 className="text-sm font-bold mb-2">Muốn phân tích sâu hơn?</h3>
               <p className="text-xs text-slate-400 mb-4 leading-relaxed">Nâng cấp Pro để nhận phân tích kỹ năng chi tiết và tư vấn AI không giới hạn.</p>
-              <button onClick={() => navigate('/upgrade')} className="w-full py-2 bg-primary-600 hover:bg-primary-500 text-white font-semibold rounded-lg text-sm flex items-center justify-center gap-1.5 transition-colors">
+              <button onClick={() => {
+                trackEvent('upgrade_click', { source: 'recommendation_result' });
+                navigate('/upgrade');
+              }} className="w-full py-2 bg-primary-600 hover:bg-primary-500 text-white font-semibold rounded-lg text-sm flex items-center justify-center gap-1.5 transition-colors">
                 Nâng cấp Pro <ArrowRight size={14} />
               </button>
             </div>

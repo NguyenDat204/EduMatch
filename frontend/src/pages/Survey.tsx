@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Zap, RotateCcw, Save } from 'lucide-react';
 import { DashboardLayout } from '../layouts';
@@ -6,6 +6,7 @@ import { QuestionCard } from '../components/ui';
 import { surveyService } from '../services/api';
 import type { Question } from '../types';
 import { useAuth } from '../hooks/useAuth';
+import { trackEvent } from '../services/analytics';
 
 // ── Storage helpers ────────────────────────────────────────────
 // sessionStorage: tồn tại suốt phiên trình duyệt, không mất khi chuyển tab
@@ -54,6 +55,7 @@ export const Survey = () => {
   const [questions, setQuestions]       = useState<Question[]>([]);
   const [loading, setLoading]           = useState(true);
   const [fetchError, setFetchError]     = useState<string | null>(null);
+  const surveyStartTrackedRef = useRef(false);
   const navigate = useNavigate();
 
   const totalSteps    = questions.length;
@@ -70,6 +72,15 @@ export const Survey = () => {
       setHasDraft(true);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!user || loading || fetchError || surveyStartTrackedRef.current) return;
+    surveyStartTrackedRef.current = true;
+    trackEvent('survey_start', {
+      restored_draft: hasDraft,
+      total_questions: questions.length,
+    });
+  }, [user, loading, fetchError, hasDraft, questions.length]);
 
   useEffect(() => {
     if (!user) return;
@@ -200,6 +211,10 @@ export const Survey = () => {
   };
 
   const handleComplete = () => {
+    trackEvent('survey_complete', {
+      answered_count: answeredCount,
+      total_questions: totalSteps,
+    });
     // Navigate tới /result ngay lập tức — AI chạy background ở đó
     // Giữ draft trong sessionStorage cho đến khi Result load xong
     navigate('/result', { state: { answers } });

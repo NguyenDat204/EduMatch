@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { PROVINCES, joinSchool } from '../lib/provinces';
+import { trackEvent } from '../services/analytics';
 
 export const Register = () => {
   const [role, setRole]                       = useState<'student' | 'university'>('student');
@@ -40,6 +41,7 @@ export const Register = () => {
     try {
       const schoolFull = joinSchool(school, province);
       await register(name, email, password, schoolFull, role, grade, majorInterest);
+      trackEvent('sign_up', { method: 'email', role, grade: role === 'student' ? grade : undefined });
       navigate(role === 'university' ? '/university/manage' : '/survey');
     } catch (err: any) {
       setError(err.message || 'Đăng ký tài khoản thất bại. Vui lòng thử lại.');

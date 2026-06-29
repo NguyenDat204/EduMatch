@@ -25,6 +25,7 @@ function App() {
       <AnalyticsTracker />
       <AuthProvider>
         <AIStatusProvider>
+          <AnalyticsTracker />
           <AppRoutes />
         </AIStatusProvider>
       </AuthProvider>

@@ -2,13 +2,15 @@ import { CheckCircle2, ArrowRight, ShieldCheck, Sparkles, Home, Calendar, Credit
 import { DashboardLayout } from '../layouts';
 import { useAuth } from '../hooks/useAuth';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { profileService } from '../services/api';
+import { trackEvent } from '../services/analytics';
 
 export const PaymentSuccess = () => {
   const { updateUserInState } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const trackedRef = useRef(false);
 
   // Extract payment details from routing state
   const state = location.state || {};
@@ -18,6 +20,14 @@ export const PaymentSuccess = () => {
 
   // Fetch updated profile on mount to sync isPro status globally across the frontend application
   useEffect(() => {
+    if (!trackedRef.current) {
+      trackedRef.current = true;
+      trackEvent('payment_success', {
+        order_code: String(orderCode),
+        amount: Number(amount) || 0,
+      });
+    }
+
     const reloadProfile = async () => {
       try {
         const res = await profileService.getProfile();

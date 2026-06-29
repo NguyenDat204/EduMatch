@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { trackEvent } from '../services/analytics';
 
 declare global {
   interface Window {
@@ -57,6 +58,7 @@ export const Login = () => {
     setErrorRef.current(null);
     try {
       const userData = await loginViaGoogleRef.current(response.credential);
+      trackEvent('login', { method: 'google', role: (userData as any)?.role || 'student' });
       if (userData && (userData as any).role === 'admin') {
         navigateRef.current('/admin');
       } else {
@@ -172,6 +174,7 @@ export const Login = () => {
     setError(null);
     try {
       const userData = await login(email, password);
+      trackEvent('login', { method: 'email', role: (userData as any)?.role || 'student' });
       if (userData && (userData as any).role === 'admin') {
         navigate('/admin');
       } else {
