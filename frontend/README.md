@@ -1,5 +1,15 @@
 # React + TypeScript + Vite
 
+## Google Analytics 4
+
+Create a GA4 web data stream and set the measurement ID in your frontend environment:
+
+```env
+VITE_GA4_MEASUREMENT_ID=G-XXXXXXXXXX
+```
+
+The app injects the GA4 script only when this variable is present and tracks page views automatically on React Router navigation.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

@@ -4,6 +4,7 @@ import { AuthProvider } from './hooks/useAuth';
 import { AIStatusProvider } from './hooks/useAIStatus';
 import { AppRoutes } from './routes/AppRoutes';
 import { publicSettingsService } from './services/api';
+import { AnalyticsTracker } from './components/AnalyticsTracker';
 
 function App() {
   useEffect(() => {
@@ -21,6 +22,7 @@ function App() {
 
   return (
     <Router>
+      <AnalyticsTracker />
       <AuthProvider>
         <AIStatusProvider>
           <AppRoutes />
