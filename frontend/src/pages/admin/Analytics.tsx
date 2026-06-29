@@ -54,6 +54,13 @@ interface Ga4Data {
   } | null;
   realtime: {
     activeUsers: number;
+    pageViews: number;
+    events: number;
+    pages?: {
+      path: string;
+      activeUsers: number;
+      pageViews: number;
+    }[];
   };
   trends: Ga4TrendPoint[];
   topPages: {
@@ -157,12 +164,13 @@ interface StatsData {
   recentPayments: any[];
 }
 
-type AnalyticsPeriod = 'week' | 'month' | 'year';
+type AnalyticsPeriod = 'week' | 'month' | 'year' | 'all';
 
 const PERIOD_OPTIONS: { key: AnalyticsPeriod; label: string; description: string }[] = [
   { key: 'week', label: 'Tuần', description: '7 ngày' },
   { key: 'month', label: 'Tháng', description: '30 ngày' },
   { key: 'year', label: 'Năm', description: '365 ngày' },
+  { key: 'all', label: 'Tất cả', description: 'Toàn thời gian' },
 ];
 
 const fmt = (d: string) => {
@@ -181,14 +189,14 @@ const duration = (seconds: number) => {
 };
 
 const StatCard = ({ label, value, icon: Icon, accent, sub }: { label: string; value: number | string; icon: any; accent: string; sub?: string }) => (
-  <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm">
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
-        <p className="mt-2 text-3xl font-black text-slate-900 dark:text-white">{value}</p>
-        {sub && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{sub}</p>}
+  <div className="h-full min-h-[124px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm">
+    <div className="flex h-full items-start justify-between gap-3">
+      <div className="flex min-w-0 h-full flex-col">
+        <p className="min-h-8 text-xs font-bold uppercase tracking-wider leading-4 text-slate-500 dark:text-slate-400">{label}</p>
+        <p className="mt-1 whitespace-nowrap text-3xl font-black leading-none text-slate-900 dark:text-white">{value}</p>
+        {sub && <p className="mt-auto pt-3 text-xs leading-4 text-slate-500 dark:text-slate-400">{sub}</p>}
       </div>
-      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${accent}`}>
+      <div className={`w-10 h-10 shrink-0 rounded-lg flex items-center justify-center ${accent}`}>
         <Icon size={18} />
       </div>
     </div>
@@ -506,7 +514,8 @@ const Ga4Panel = ({ ga4, periodLabel }: { ga4?: Ga4Data; periodLabel: string }) 
         </span>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
+        <StatCard label="Realtime views" value={ga4.realtime.pageViews || 0} icon={Activity} accent="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30" sub={`${ga4.realtime.events || 0} events / 30 phút`} />
         <StatCard label="Active users" value={summary?.activeUsers || 0} icon={Users} accent="bg-sky-50 text-sky-600 dark:bg-sky-950/30" sub="GA4 users" />
         <StatCard label="New users" value={summary?.newUsers || 0} icon={Star} accent="bg-amber-50 text-amber-600 dark:bg-amber-950/30" sub="Người dùng mới" />
         <StatCard label="Sessions" value={summary?.sessions || 0} icon={Activity} accent="bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30" sub="Phiên truy cập" />
@@ -514,6 +523,30 @@ const Ga4Panel = ({ ga4, periodLabel }: { ga4?: Ga4Data; periodLabel: string }) 
         <StatCard label="Events" value={summary?.events || 0} icon={Gauge} accent="bg-violet-50 text-violet-600 dark:bg-violet-950/30" sub="Tổng event" />
         <StatCard label="Engagement" value={`${summary?.engagementRate || 0}%`} icon={TrendingUp} accent="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30" sub="Tỷ lệ tương tác" />
         <StatCard label="Avg session" value={duration(summary?.averageSessionDuration || 0)} icon={RefreshCw} accent="bg-rose-50 text-rose-600 dark:bg-rose-950/30" sub="Thời lượng TB" />
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+          <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+            <Activity size={15} className="text-emerald-500" /> Realtime pages
+          </h3>
+        </div>
+        <div className="hidden md:grid grid-cols-[1fr_140px_120px] gap-4 px-5 py-3 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase tracking-wider text-slate-500">
+          <span>Trang / màn hình</span>
+          <span>Active users</span>
+          <span>Views</span>
+        </div>
+        <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+          {(ga4.realtime.pages || []).length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-400">Chưa có page realtime</p>
+          ) : ga4.realtime.pages?.map((page) => (
+            <div key={page.path} className="grid grid-cols-1 md:grid-cols-[1fr_140px_120px] gap-2 md:gap-4 px-5 py-3 items-center">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{page.path}</p>
+              <p className="text-sm text-emerald-600 font-bold">{page.activeUsers}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{page.pageViews}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">

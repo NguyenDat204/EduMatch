@@ -16,6 +16,7 @@ To show GA4 data in the admin analytics page, set these backend environment vari
 GA4_PROPERTY_ID=123456789
 GA4_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
 GA4_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GA4_START_DATE=2020-01-01
 ```
 
 Alternatively, provide the service account JSON as one variable:

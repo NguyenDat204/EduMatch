@@ -7,6 +7,7 @@ const PERIOD_START_DATES = {
   week: "7daysAgo",
   month: "30daysAgo",
   year: "365daysAgo",
+  all: process.env.GA4_START_DATE || "2020-01-01",
 };
 
 let cachedAuthClient = null;
@@ -95,7 +96,7 @@ const getGa4Analytics = async (periodKey = "month") => {
       configured: false,
       error: "GA4 chưa được cấu hình trên backend.",
       summary: null,
-      realtime: { activeUsers: 0 },
+      realtime: { activeUsers: 0, pageViews: 0, events: 0, pages: [] },
       trends: [],
       topPages: [],
       topEvents: [],
@@ -106,7 +107,7 @@ const getGa4Analytics = async (periodKey = "month") => {
   const dateRanges = [{ startDate, endDate: "today" }];
 
   try {
-    const [summary, trends, topPages, topEvents, realtime] = await Promise.all([
+    const [summary, trends, topPages, topEvents, realtime, realtimePages, realtimeEvents] = await Promise.all([
       runGa4Report(authClient, propertyId, "runReport", {
         dateRanges,
         metrics: [
@@ -149,7 +150,26 @@ const getGa4Analytics = async (periodKey = "month") => {
         limit: 8,
       }),
       runGa4Report(authClient, propertyId, "runRealtimeReport", {
-        metrics: [{ name: "activeUsers" }],
+        metrics: [
+          { name: "activeUsers" },
+          { name: "screenPageViews" },
+          { name: "eventCount" },
+        ],
+      }),
+      runGa4Report(authClient, propertyId, "runRealtimeReport", {
+        dimensions: [{ name: "unifiedScreenName" }],
+        metrics: [
+          { name: "activeUsers" },
+          { name: "screenPageViews" },
+        ],
+        orderBys: [{ metric: { metricName: "activeUsers" }, desc: true }],
+        limit: 10,
+      }),
+      runGa4Report(authClient, propertyId, "runRealtimeReport", {
+        dimensions: [{ name: "eventName" }],
+        metrics: [{ name: "eventCount" }],
+        orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+        limit: 20,
       }),
     ]);
 
@@ -157,6 +177,17 @@ const getGa4Analytics = async (periodKey = "month") => {
     const summaryHeaders = summary.metricHeaders || [];
     const realtimeRow = realtime.rows?.[0] || {};
     const realtimeHeaders = realtime.metricHeaders || [];
+    const realtimePageRows = (realtimePages.rows || []).map((row) => ({
+      path: getDimensionValue(row, realtimePages.dimensionHeaders || [], "unifiedScreenName") || "Không rõ",
+      activeUsers: Math.round(getMetricValue(row, realtimePages.metricHeaders || [], "activeUsers")),
+      pageViews: Math.round(getMetricValue(row, realtimePages.metricHeaders || [], "screenPageViews")),
+    }));
+    const realtimePageViews = realtimePageRows.reduce((sum, row) => sum + row.pageViews, 0);
+    const realtimePageViewEvents = (realtimeEvents.rows || []).reduce((sum, row) => {
+      const eventName = getDimensionValue(row, realtimeEvents.dimensionHeaders || [], "eventName");
+      if (eventName !== "page_view") return sum;
+      return sum + Math.round(getMetricValue(row, realtimeEvents.metricHeaders || [], "eventCount"));
+    }, 0);
 
     return {
       configured: true,
@@ -172,6 +203,9 @@ const getGa4Analytics = async (periodKey = "month") => {
       },
       realtime: {
         activeUsers: Math.round(getMetricValue(realtimeRow, realtimeHeaders, "activeUsers")),
+        pageViews: realtimePageViews || realtimePageViewEvents || Math.round(getMetricValue(realtimeRow, realtimeHeaders, "screenPageViews")),
+        events: Math.round(getMetricValue(realtimeRow, realtimeHeaders, "eventCount")),
+        pages: realtimePageRows,
       },
       trends: (trends.rows || []).map((row) => ({
         date: formatGaDate(getDimensionValue(row, trends.dimensionHeaders || [], "date")),
@@ -200,7 +234,7 @@ const getGa4Analytics = async (periodKey = "month") => {
       propertyId,
       error: error.response?.data?.error?.message || error.message,
       summary: null,
-      realtime: { activeUsers: 0 },
+      realtime: { activeUsers: 0, pageViews: 0, events: 0, pages: [] },
       trends: [],
       topPages: [],
       topEvents: [],

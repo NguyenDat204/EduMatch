@@ -23,6 +23,7 @@ const ANALYTICS_PERIODS = {
   week: { days: 7, label: "7 ngày", granularity: "day" },
   month: { days: 30, label: "30 ngày", granularity: "day" },
   year: { days: 365, label: "365 ngày", granularity: "day" },
+  all: { days: 3650, label: "Toàn thời gian", granularity: "day" },
 };
 
 const resolveAnalyticsPeriod = (period = "month") => (

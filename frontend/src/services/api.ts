@@ -279,7 +279,7 @@ export const adminService = {
     const response = await apiClient.delete(`/admin/users/${id}`);
     return response.data;
   },
-  getSystemAnalytics: async (period: 'week' | 'month' | 'year' = 'month'): Promise<ApiResponse<any>> => {
+  getSystemAnalytics: async (period: 'week' | 'month' | 'year' | 'all' = 'month'): Promise<ApiResponse<any>> => {
     const response = await apiClient.get('/admin/analytics', { params: { period } });
     return response.data;
   },
