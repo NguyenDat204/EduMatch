@@ -22,7 +22,6 @@ function App() {
 
   return (
     <Router>
-      <AnalyticsTracker />
       <AuthProvider>
         <AIStatusProvider>
           <AnalyticsTracker />

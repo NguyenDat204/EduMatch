@@ -9,6 +9,7 @@ declare global {
 
 const GA_SCRIPT_ID = 'ga4-script';
 const measurementId = import.meta.env.VITE_GA4_MEASUREMENT_ID?.trim();
+const debugMode = import.meta.env.DEV || import.meta.env.VITE_GA4_DEBUG_MODE === 'true';
 
 let isInitialized = false;
 let lastTrackedPage = '';
@@ -35,7 +36,10 @@ export const initializeAnalytics = () => {
   window.dataLayer = window.dataLayer || [];
   window.gtag = window.gtag || ((...args: unknown[]) => window.dataLayer?.push(args));
   window.gtag('js', new Date());
-  window.gtag('config', measurementId, { send_page_view: false });
+  window.gtag('config', measurementId, {
+    send_page_view: false,
+    debug_mode: debugMode,
+  });
 
   isInitialized = true;
   return true;
@@ -51,6 +55,7 @@ export const trackPageView = (pagePath: string, pageTitle = document.title) => {
     page_title: pageTitle,
     page_location: window.location.href,
     page_path: pagePath,
+    debug_mode: debugMode,
   });
 };
 
@@ -59,5 +64,8 @@ export const trackEvent = (eventName: string, params?: Record<string, unknown>) 
     return;
   }
 
-  window.gtag?.('event', eventName, params);
+  window.gtag?.('event', eventName, {
+    ...params,
+    debug_mode: debugMode,
+  });
 };
