@@ -12,12 +12,14 @@ declare global {
   }
 }
 
-const GA_MEASUREMENT_ID = import.meta.env.VITE_GA4_MEASUREMENT_ID;
-const GTM_CONTAINER_ID = import.meta.env.VITE_GTM_CONTAINER_ID;
+const GA_MEASUREMENT_ID = import.meta.env.VITE_GA4_MEASUREMENT_ID?.trim();
+const GTM_CONTAINER_ID = import.meta.env.VITE_GTM_CONTAINER_ID?.trim();
 const CLARITY_PROJECT_ID = import.meta.env.VITE_CLARITY_PROJECT_ID;
 const MANTLE_APP_ID = import.meta.env.VITE_MANTLE_APP_ID;
 const isProduction = import.meta.env.PROD;
+const debugMode = import.meta.env.DEV || import.meta.env.VITE_GA4_DEBUG_MODE === 'true';
 let analyticsInitialized = false;
+let lastTrackedPage = '';
 
 const appendScript = (id: string, src: string, async = true): HTMLScriptElement | null => {
   if (typeof document === 'undefined') return null;
@@ -44,6 +46,10 @@ export const initAnalytics = () => {
     };
     appendScript('ga4-script', `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`);
     window.gtag('js', new Date());
+    window.gtag('config', GA_MEASUREMENT_ID, {
+      send_page_view: false,
+      debug_mode: debugMode,
+    });
   }
 
   if (GTM_CONTAINER_ID) {
@@ -72,6 +78,10 @@ export const initAnalytics = () => {
 
 export const trackPageView = (path: string, title = document.title) => {
   if (typeof window === 'undefined') return;
+  initAnalytics();
+
+  if (lastTrackedPage === path) return;
+  lastTrackedPage = path;
 
   if (GA_MEASUREMENT_ID) {
     window.gtag?.('config', GA_MEASUREMENT_ID, {
@@ -79,6 +89,7 @@ export const trackPageView = (path: string, title = document.title) => {
       page_location: window.location.href,
       page_title: title,
       anonymize_ip: true,
+      debug_mode: debugMode,
     });
   }
 
@@ -94,12 +105,16 @@ export const trackPageView = (path: string, title = document.title) => {
 
 export const trackEvent = (eventName: string, params: AnalyticsParams = {}) => {
   if (typeof window === 'undefined') return;
+  initAnalytics();
 
   const cleanParams = Object.fromEntries(
     Object.entries(params).filter(([, value]) => value !== undefined && value !== null)
   );
 
-  window.gtag?.('event', eventName, cleanParams);
+  window.gtag?.('event', eventName, {
+    ...cleanParams,
+    debug_mode: debugMode,
+  });
   window.dataLayer?.push({ event: eventName, ...cleanParams });
   window.clarity?.('event', eventName);
   window.mantle?.track?.(eventName, cleanParams);
