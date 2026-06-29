@@ -1,7 +1,9 @@
 import axios from 'axios';
 import type { Career, University, User, Question, ApiResponse, SubscriptionPlan, DashboardMetrics } from '../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://edumatch-hfg8.onrender.com/api';
+const API_URL = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+  ? 'http://localhost:5000/api'
+  : import.meta.env.VITE_API_URL || 'https://edumatch-hfg8.onrender.com/api';
 const removeStoredToken = () => {
   try {
     localStorage.removeItem('edumatch_token');
@@ -12,6 +14,7 @@ const removeStoredToken = () => {
 
 export const apiClient = axios.create({
   baseURL: API_URL,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },

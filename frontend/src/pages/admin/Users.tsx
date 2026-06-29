@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   Search, Trash2, Shield, User, Loader2, CheckCircle2, AlertCircle,
   ShieldCheck, ChevronDown, Users as UsersIcon, X, Filter, Calendar,
+  Download,
 } from 'lucide-react';
 import { adminService } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
@@ -22,6 +23,13 @@ const ROLE_BADGE: Record<string, string> = {
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Admin', student: 'Học sinh', university: 'Đại học',
 };
+
+const escapeHtml = (value: any) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
 
 export const Users = () => {
   const { user: currentAdmin } = useAuth();
@@ -59,6 +67,82 @@ export const Users = () => {
     if (isError) { setError(msg); setSuccess(null); }
     else { setSuccess(msg); setError(null); }
     setTimeout(() => { setError(null); setSuccess(null); }, 3500);
+  };
+
+  const handleExportExcel = () => {
+    const rows = filtered.map((user, index) => ({
+      stt: index + 1,
+      name: user.name || '',
+      email: user.email || '',
+      role: ROLE_LABEL[user.role] || user.role || '',
+      plan: user.isPro ? 'Pro' : 'Miễn phí',
+      school: user.academicInfo?.school || '',
+      grade: user.academicInfo?.grade ? `Lớp ${user.academicInfo.grade}` : '',
+      majorInterest: user.academicInfo?.majorInterest || '',
+      holland: user.personalityTest?.archetype || '',
+      createdAt: fmt(user.createdAt),
+    }));
+
+    const html = `
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <style>
+            table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; }
+            th { background: #2563eb; color: #ffffff; font-weight: 700; }
+            th, td { border: 1px solid #dbe3ef; padding: 8px; vertical-align: top; }
+            td.text { mso-number-format: "\\@"; }
+          </style>
+        </head>
+        <body>
+          <table>
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Họ tên</th>
+                <th>Email</th>
+                <th>Vai trò</th>
+                <th>Gói</th>
+                <th>Trường</th>
+                <th>Lớp</th>
+                <th>Ngành quan tâm</th>
+                <th>Holland</th>
+                <th>Ngày đăng ký</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((row) => `
+                <tr>
+                  <td>${row.stt}</td>
+                  <td>${escapeHtml(row.name)}</td>
+                  <td class="text">${escapeHtml(row.email)}</td>
+                  <td>${escapeHtml(row.role)}</td>
+                  <td>${escapeHtml(row.plan)}</td>
+                  <td>${escapeHtml(row.school)}</td>
+                  <td>${escapeHtml(row.grade)}</td>
+                  <td>${escapeHtml(row.majorInterest)}</td>
+                  <td>${escapeHtml(row.holland)}</td>
+                  <td class="text">${escapeHtml(row.createdAt)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const today = new Date();
+    const stamp = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const suffix = roleFilter === 'all' ? 'tat-ca' : roleFilter;
+    link.href = url;
+    link.download = `edumatch-users-${suffix}-${stamp}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleRoleChange = async (user: any, newRole: string) => {
@@ -127,6 +211,14 @@ export const Users = () => {
           <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">Quản lý người dùng</h1>
           <p className="text-sm text-slate-500 mt-0.5">{usersList.length} tài khoản trong hệ thống.</p>
         </div>
+        <button
+          onClick={handleExportExcel}
+          disabled={loading || filtered.length === 0}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+        >
+          <Download size={15} />
+          Xuất Excel
+        </button>
       </div>
       {/* Alert banners */}
       {error && (

@@ -62,6 +62,8 @@ const maintenanceGuard = async (req, res, next) => {
       req.path === "/" ||
       req.path.startsWith("/api/settings/public") ||
       req.path.startsWith("/api/auth/login") ||
+      req.path.startsWith("/api/auth/forgot-password") ||
+      req.path.startsWith("/api/auth/reset-password") ||
       req.path.startsWith("/api/admin")
     ) {
       return next();
