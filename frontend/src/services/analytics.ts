@@ -41,8 +41,8 @@ export const initAnalytics = () => {
 
   if (GA_MEASUREMENT_ID) {
     window.dataLayer = window.dataLayer || [];
-    window.gtag = window.gtag || function gtagShim(...args: unknown[]) {
-      window.dataLayer?.push(args);
+    window.gtag = window.gtag || function gtagShim() {
+      window.dataLayer?.push(arguments);
     };
     appendScript('ga4-script', `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`);
     window.gtag('js', new Date());
