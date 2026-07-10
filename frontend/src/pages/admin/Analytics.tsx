@@ -8,6 +8,7 @@ import {
   ThumbsUp, ThumbsDown, CreditCard,
 } from 'lucide-react';
 import { adminService } from '../../services/api';
+import { getAnalyticsPageTitle } from '../../lib/pageTitles';
 
 interface TrendPoint {
   date: string;
@@ -58,6 +59,7 @@ interface Ga4Data {
     events: number;
     pages?: {
       path: string;
+      title?: string;
       activeUsers: number;
       pageViews: number;
     }[];
@@ -68,6 +70,13 @@ interface Ga4Data {
     title: string;
     pageViews: number;
     activeUsers: number;
+    events: number;
+  }[];
+  trafficChannels?: {
+    channel: string;
+    sessions: number;
+    activeUsers: number;
+    pageViews: number;
     events: number;
   }[];
   topEvents: {
@@ -187,6 +196,26 @@ const duration = (seconds: number) => {
   const secs = seconds % 60;
   return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
 };
+
+const trafficChannelLabel: Record<string, string> = {
+  'Organic Social': 'Social tự nhiên',
+  'Paid Social': 'Social trả phí',
+  'Organic Search': 'Tìm kiếm tự nhiên',
+  'Paid Search': 'Tìm kiếm trả phí',
+  Direct: 'Trực tiếp',
+  Referral: 'Giới thiệu',
+  Email: 'Email',
+  Affiliates: 'Tiếp thị liên kết',
+  Display: 'Hiển thị',
+  'Organic Video': 'Video tự nhiên',
+  'Paid Video': 'Video trả phí',
+  'Organic Shopping': 'Mua sắm tự nhiên',
+  'Paid Shopping': 'Mua sắm trả phí',
+  'Cross-network': 'Đa mạng',
+  Unassigned: 'Chưa phân loại',
+};
+
+const getTrafficChannelLabel = (channel: string) => trafficChannelLabel[channel] || channel;
 
 const StatCard = ({ label, value, icon: Icon, accent, sub }: { label: string; value: number | string; icon: any; accent: string; sub?: string }) => (
   <div className="h-full min-h-[124px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm">
@@ -420,6 +449,53 @@ const MiniMetric = ({ label, value }: { label: string; value: string | number })
   </div>
 );
 
+const TrafficChannelsPanel = ({ data }: { data: NonNullable<Ga4Data['trafficChannels']> }) => {
+  const maxSessions = Math.max(1, ...data.map((item) => item.sessions));
+  const organicSocial = data.find((item) => item.channel === 'Organic Social');
+
+  return (
+    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+        <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+          <TrendingUp size={15} className="text-indigo-500" /> Kênh truy cập
+        </h3>
+        <span className="text-xs text-slate-400">
+          Social tự nhiên: <span className="font-bold text-slate-700 dark:text-slate-200">{organicSocial?.sessions || 0}</span> phiên
+        </span>
+      </div>
+      <div className="hidden md:grid grid-cols-[1fr_90px_100px_90px] gap-4 px-5 py-3 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase tracking-wider text-slate-500">
+        <span>Kênh</span>
+        <span>Phiên</span>
+        <span>Người dùng</span>
+        <span>Lượt xem</span>
+      </div>
+      <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+        {data.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-400">Chưa có dữ liệu kênh truy cập</p>
+        ) : data.map((item) => (
+          <div key={item.channel} className="grid grid-cols-1 md:grid-cols-[1fr_90px_100px_90px] gap-2 md:gap-4 px-5 py-3 items-center">
+            <div className="min-w-0">
+              <div className="flex items-center justify-between gap-3 mb-1">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{getTrafficChannelLabel(item.channel)}</p>
+                <span className="md:hidden text-xs font-bold text-slate-500">{item.sessions} phiên</span>
+              </div>
+              <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className={item.channel === 'Organic Social' ? 'h-full bg-indigo-500 rounded-full' : 'h-full bg-slate-300 dark:bg-slate-500 rounded-full'}
+                  style={{ width: `${Math.max(4, (item.sessions / maxSessions) * 100)}%` }}
+                />
+              </div>
+            </div>
+            <p className="hidden md:block text-sm font-bold text-indigo-600">{item.sessions}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">{item.activeUsers}</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">{item.pageViews}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const CareerCategoryCoverage = ({ data }: { data: DistributionPoint[] }) => {
   const totalCareers = data.reduce((sum, item) => sum + item.value, 0);
   const maxCareers = Math.max(1, ...data.map((item) => item.value));
@@ -510,44 +586,52 @@ const Ga4Panel = ({ ga4, periodLabel }: { ga4?: Ga4Data; periodLabel: string }) 
         </div>
         <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
           <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          {ga4.realtime.activeUsers} realtime
+          {ga4.realtime.activeUsers} đang online
         </span>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
-        <StatCard label="Realtime views" value={ga4.realtime.pageViews || 0} icon={Activity} accent="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30" sub={`${ga4.realtime.events || 0} events / 30 phút`} />
-        <StatCard label="Active users" value={summary?.activeUsers || 0} icon={Users} accent="bg-sky-50 text-sky-600 dark:bg-sky-950/30" sub="GA4 users" />
-        <StatCard label="New users" value={summary?.newUsers || 0} icon={Star} accent="bg-amber-50 text-amber-600 dark:bg-amber-950/30" sub="Người dùng mới" />
-        <StatCard label="Sessions" value={summary?.sessions || 0} icon={Activity} accent="bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30" sub="Phiên truy cập" />
-        <StatCard label="Page views" value={summary?.pageViews || 0} icon={FileText} accent="bg-teal-50 text-teal-600 dark:bg-teal-950/30" sub="Lượt xem trang" />
-        <StatCard label="Events" value={summary?.events || 0} icon={Gauge} accent="bg-violet-50 text-violet-600 dark:bg-violet-950/30" sub="Tổng event" />
-        <StatCard label="Engagement" value={`${summary?.engagementRate || 0}%`} icon={TrendingUp} accent="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30" sub="Tỷ lệ tương tác" />
-        <StatCard label="Avg session" value={duration(summary?.averageSessionDuration || 0)} icon={RefreshCw} accent="bg-rose-50 text-rose-600 dark:bg-rose-950/30" sub="Thời lượng TB" />
+        <StatCard label="Lượt xem realtime" value={ga4.realtime.pageViews || 0} icon={Activity} accent="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30" sub={`${ga4.realtime.events || 0} sự kiện / 30 phút`} />
+        <StatCard label="Người dùng hoạt động" value={summary?.activeUsers || 0} icon={Users} accent="bg-sky-50 text-sky-600 dark:bg-sky-950/30" sub="Người dùng GA4" />
+        <StatCard label="Người dùng mới" value={summary?.newUsers || 0} icon={Star} accent="bg-amber-50 text-amber-600 dark:bg-amber-950/30" sub="Người dùng mới" />
+        <StatCard label="Phiên truy cập" value={summary?.sessions || 0} icon={Activity} accent="bg-indigo-50 text-indigo-600 dark:bg-indigo-950/30" sub="Phiên truy cập" />
+        <StatCard label="Lượt xem trang" value={summary?.pageViews || 0} icon={FileText} accent="bg-teal-50 text-teal-600 dark:bg-teal-950/30" sub="Lượt xem trang" />
+        <StatCard label="Sự kiện" value={summary?.events || 0} icon={Gauge} accent="bg-violet-50 text-violet-600 dark:bg-violet-950/30" sub="Tổng sự kiện" />
+        <StatCard label="Tương tác" value={`${summary?.engagementRate || 0}%`} icon={TrendingUp} accent="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30" sub="Tỷ lệ tương tác" />
+        <StatCard label="Thời lượng phiên" value={duration(summary?.averageSessionDuration || 0)} icon={RefreshCw} accent="bg-rose-50 text-rose-600 dark:bg-rose-950/30" sub="Thời lượng TB" />
       </div>
 
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
           <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-            <Activity size={15} className="text-emerald-500" /> Realtime pages
+            <Activity size={15} className="text-emerald-500" /> Trang realtime
           </h3>
         </div>
         <div className="hidden md:grid grid-cols-[1fr_140px_120px] gap-4 px-5 py-3 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase tracking-wider text-slate-500">
           <span>Trang / màn hình</span>
-          <span>Active users</span>
-          <span>Views</span>
+          <span>Người dùng</span>
+          <span>Lượt xem</span>
         </div>
         <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
           {(ga4.realtime.pages || []).length === 0 ? (
             <p className="py-8 text-center text-sm text-slate-400">Chưa có page realtime</p>
-          ) : ga4.realtime.pages?.map((page) => (
-            <div key={page.path} className="grid grid-cols-1 md:grid-cols-[1fr_140px_120px] gap-2 md:gap-4 px-5 py-3 items-center">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{page.path}</p>
-              <p className="text-sm text-emerald-600 font-bold">{page.activeUsers}</p>
-              <p className="text-sm text-slate-600 dark:text-slate-300">{page.pageViews}</p>
-            </div>
-          ))}
+          ) : ga4.realtime.pages?.map((page, index) => {
+            const pageTitle = getAnalyticsPageTitle(page.path, page.title);
+            return (
+              <div key={`${page.path || page.title || 'realtime-page'}-${index}`} className="grid grid-cols-1 md:grid-cols-[1fr_140px_120px] gap-2 md:gap-4 px-5 py-3 items-center">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{pageTitle}</p>
+                  {page.path && <p className="text-xs text-slate-400 truncate">{page.path}</p>}
+                </div>
+                <p className="text-sm text-emerald-600 font-bold">{page.activeUsers}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300">{page.pageViews}</p>
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      <TrafficChannelsPanel data={ga4.trafficChannels || []} />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         <LineChart title="GA4 page views" data={pageViewTrend} color="text-indigo-500" periodLabel={periodLabel} />
@@ -555,33 +639,36 @@ const Ga4Panel = ({ ga4, periodLabel }: { ga4?: Ga4Data; periodLabel: string }) 
         <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
             <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-              <FileText size={15} className="text-teal-500" /> Top pages
+              <FileText size={15} className="text-teal-500" /> Trang xem nhiều
             </h3>
           </div>
           <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
             {ga4.topPages.length === 0 ? (
               <p className="py-8 text-center text-sm text-slate-400">Chưa có dữ liệu GA4</p>
-            ) : ga4.topPages.map((page) => (
-              <div key={`${page.path}-${page.title}`} className="grid grid-cols-[1fr_auto] gap-3 px-5 py-3 items-center">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{page.title}</p>
-                  <p className="text-xs text-slate-400 truncate">{page.path}</p>
+            ) : ga4.topPages.map((page) => {
+              const pageTitle = getAnalyticsPageTitle(page.path, page.title);
+              return (
+                <div key={`${page.path}-${page.title}`} className="grid grid-cols-[1fr_auto] gap-3 px-5 py-3 items-center">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{pageTitle}</p>
+                    <p className="text-xs text-slate-400 truncate">{page.path}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-slate-900 dark:text-white">{page.pageViews}</p>
+                    <p className="text-[11px] text-slate-400">{page.activeUsers} users</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-black text-slate-900 dark:text-white">{page.pageViews}</p>
-                  <p className="text-[11px] text-slate-400">{page.activeUsers} users</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
 
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
         <div className="hidden md:grid grid-cols-[1fr_120px_120px] gap-4 px-5 py-3 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase tracking-wider text-slate-500">
-          <span>Event</span>
+          <span>Sự kiện</span>
           <span>Số lần</span>
-          <span>Users</span>
+          <span>Người dùng</span>
         </div>
         <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
           {ga4.topEvents.length === 0 ? (

@@ -98,6 +98,7 @@ const getGa4Analytics = async (periodKey = "month") => {
       summary: null,
       realtime: { activeUsers: 0, pageViews: 0, events: 0, pages: [] },
       trends: [],
+      trafficChannels: [],
       topPages: [],
       topEvents: [],
     };
@@ -107,7 +108,7 @@ const getGa4Analytics = async (periodKey = "month") => {
   const dateRanges = [{ startDate, endDate: "today" }];
 
   try {
-    const [summary, trends, topPages, topEvents, realtime, realtimePages, realtimeEvents] = await Promise.all([
+    const [summary, trends, topPages, topEvents, trafficChannels, realtime, realtimePages, realtimeEvents] = await Promise.all([
       runGa4Report(authClient, propertyId, "runReport", {
         dateRanges,
         metrics: [
@@ -149,6 +150,18 @@ const getGa4Analytics = async (periodKey = "month") => {
         orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
         limit: 8,
       }),
+      runGa4Report(authClient, propertyId, "runReport", {
+        dateRanges,
+        dimensions: [{ name: "sessionDefaultChannelGroup" }],
+        metrics: [
+          { name: "sessions" },
+          { name: "activeUsers" },
+          { name: "screenPageViews" },
+          { name: "eventCount" },
+        ],
+        orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+        limit: 10,
+      }),
       runGa4Report(authClient, propertyId, "runRealtimeReport", {
         metrics: [
           { name: "activeUsers" },
@@ -177,11 +190,16 @@ const getGa4Analytics = async (periodKey = "month") => {
     const summaryHeaders = summary.metricHeaders || [];
     const realtimeRow = realtime.rows?.[0] || {};
     const realtimeHeaders = realtime.metricHeaders || [];
-    const realtimePageRows = (realtimePages.rows || []).map((row) => ({
-      path: getDimensionValue(row, realtimePages.dimensionHeaders || [], "unifiedScreenName") || "Không rõ",
-      activeUsers: Math.round(getMetricValue(row, realtimePages.metricHeaders || [], "activeUsers")),
-      pageViews: Math.round(getMetricValue(row, realtimePages.metricHeaders || [], "screenPageViews")),
-    }));
+    const realtimePageRows = (realtimePages.rows || []).map((row) => {
+      const screenName = getDimensionValue(row, realtimePages.dimensionHeaders || [], "unifiedScreenName") || "";
+      const looksLikePath = screenName.startsWith("/");
+      return {
+        path: looksLikePath ? screenName : "",
+        title: screenName || "Không rõ trang",
+        activeUsers: Math.round(getMetricValue(row, realtimePages.metricHeaders || [], "activeUsers")),
+        pageViews: Math.round(getMetricValue(row, realtimePages.metricHeaders || [], "screenPageViews")),
+      };
+    });
     const realtimePageViews = realtimePageRows.reduce((sum, row) => sum + row.pageViews, 0);
     const realtimePageViewEvents = (realtimeEvents.rows || []).reduce((sum, row) => {
       const eventName = getDimensionValue(row, realtimeEvents.dimensionHeaders || [], "eventName");
@@ -222,6 +240,13 @@ const getGa4Analytics = async (periodKey = "month") => {
         activeUsers: Math.round(getMetricValue(row, topPages.metricHeaders || [], "activeUsers")),
         events: Math.round(getMetricValue(row, topPages.metricHeaders || [], "eventCount")),
       })),
+      trafficChannels: (trafficChannels.rows || []).map((row) => ({
+        channel: getDimensionValue(row, trafficChannels.dimensionHeaders || [], "sessionDefaultChannelGroup") || "Unassigned",
+        sessions: Math.round(getMetricValue(row, trafficChannels.metricHeaders || [], "sessions")),
+        activeUsers: Math.round(getMetricValue(row, trafficChannels.metricHeaders || [], "activeUsers")),
+        pageViews: Math.round(getMetricValue(row, trafficChannels.metricHeaders || [], "screenPageViews")),
+        events: Math.round(getMetricValue(row, trafficChannels.metricHeaders || [], "eventCount")),
+      })),
       topEvents: (topEvents.rows || []).map((row) => ({
         name: getDimensionValue(row, topEvents.dimensionHeaders || [], "eventName") || "unknown",
         count: Math.round(getMetricValue(row, topEvents.metricHeaders || [], "eventCount")),
@@ -236,6 +261,7 @@ const getGa4Analytics = async (periodKey = "month") => {
       summary: null,
       realtime: { activeUsers: 0, pageViews: 0, events: 0, pages: [] },
       trends: [],
+      trafficChannels: [],
       topPages: [],
       topEvents: [],
     };
