@@ -87,6 +87,14 @@ const runGa4Report = async (authClient, propertyId, path, body) => {
   return response.data || {};
 };
 
+const runOptionalGa4Report = async (authClient, propertyId, path, body) => {
+  try {
+    return await runGa4Report(authClient, propertyId, path, body);
+  } catch {
+    return {};
+  }
+};
+
 const getGa4Analytics = async (periodKey = "month") => {
   const propertyId = process.env.GA4_PROPERTY_ID?.trim();
   const authClient = await getAuthClient();
@@ -108,7 +116,7 @@ const getGa4Analytics = async (periodKey = "month") => {
   const dateRanges = [{ startDate, endDate: "today" }];
 
   try {
-    const [summary, trends, topPages, topEvents, trafficChannels, realtime, realtimePages, realtimeEvents] = await Promise.all([
+    const [summary, trends, topPages, pageViewUsers, topEvents, trafficChannels, realtime, realtimePages, realtimeEvents] = await Promise.all([
       runGa4Report(authClient, propertyId, "runReport", {
         dateRanges,
         metrics: [
@@ -132,25 +140,37 @@ const getGa4Analytics = async (periodKey = "month") => {
         ],
         orderBys: [{ dimension: { dimensionName: "date" } }],
       }),
-      runGa4Report(authClient, propertyId, "runReport", {
+      runOptionalGa4Report(authClient, propertyId, "runReport", {
         dateRanges,
         dimensions: [{ name: "pagePath" }, { name: "pageTitle" }],
         metrics: [
           { name: "screenPageViews" },
-          { name: "activeUsers" },
           { name: "eventCount" },
         ],
         orderBys: [{ metric: { metricName: "screenPageViews" }, desc: true }],
-        limit: 8,
       }),
-      runGa4Report(authClient, propertyId, "runReport", {
+      runOptionalGa4Report(authClient, propertyId, "runReport", {
+        dateRanges,
+        dimensions: [{ name: "pagePath" }],
+        metrics: [
+          { name: "eventCount" },
+          { name: "totalUsers" },
+        ],
+        dimensionFilter: {
+          filter: {
+            fieldName: "eventName",
+            stringFilter: { matchType: "EXACT", value: "page_view" },
+          },
+        },
+        orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
+      }),
+      runOptionalGa4Report(authClient, propertyId, "runReport", {
         dateRanges,
         dimensions: [{ name: "eventName" }],
-        metrics: [{ name: "eventCount" }, { name: "activeUsers" }],
+        metrics: [{ name: "eventCount" }, { name: "totalUsers" }],
         orderBys: [{ metric: { metricName: "eventCount" }, desc: true }],
-        limit: 8,
       }),
-      runGa4Report(authClient, propertyId, "runReport", {
+      runOptionalGa4Report(authClient, propertyId, "runReport", {
         dateRanges,
         dimensions: [{ name: "sessionDefaultChannelGroup" }],
         metrics: [
@@ -169,7 +189,7 @@ const getGa4Analytics = async (periodKey = "month") => {
           { name: "eventCount" },
         ],
       }),
-      runGa4Report(authClient, propertyId, "runRealtimeReport", {
+      runOptionalGa4Report(authClient, propertyId, "runRealtimeReport", {
         dimensions: [{ name: "unifiedScreenName" }],
         metrics: [
           { name: "activeUsers" },
@@ -190,22 +210,34 @@ const getGa4Analytics = async (periodKey = "month") => {
     const summaryHeaders = summary.metricHeaders || [];
     const realtimeRow = realtime.rows?.[0] || {};
     const realtimeHeaders = realtime.metricHeaders || [];
-    const realtimePageRows = (realtimePages.rows || []).map((row) => {
-      const screenName = getDimensionValue(row, realtimePages.dimensionHeaders || [], "unifiedScreenName") || "";
-      const looksLikePath = screenName.startsWith("/");
-      return {
-        path: looksLikePath ? screenName : "",
-        title: screenName || "Không rõ trang",
-        activeUsers: Math.round(getMetricValue(row, realtimePages.metricHeaders || [], "activeUsers")),
-        pageViews: Math.round(getMetricValue(row, realtimePages.metricHeaders || [], "screenPageViews")),
-      };
-    });
+    const realtimePageRows = (realtimePages.rows || [])
+      .map((row) => {
+        const screenName = getDimensionValue(row, realtimePages.dimensionHeaders || [], "unifiedScreenName") || "";
+        const looksLikePath = screenName.startsWith("/");
+        return {
+          path: looksLikePath ? screenName : "",
+          title: screenName || "Không rõ trang",
+          activeUsers: Math.round(getMetricValue(row, realtimePages.metricHeaders || [], "activeUsers")),
+          pageViews: Math.round(getMetricValue(row, realtimePages.metricHeaders || [], "screenPageViews")),
+        };
+      })
+      .filter((row) => row.pageViews > 0);
     const realtimePageViews = realtimePageRows.reduce((sum, row) => sum + row.pageViews, 0);
     const realtimePageViewEvents = (realtimeEvents.rows || []).reduce((sum, row) => {
       const eventName = getDimensionValue(row, realtimeEvents.dimensionHeaders || [], "eventName");
       if (eventName !== "page_view") return sum;
       return sum + Math.round(getMetricValue(row, realtimeEvents.metricHeaders || [], "eventCount"));
     }, 0);
+
+    const pageViewUserRows = new Map(
+      (pageViewUsers.rows || []).map((row) => {
+        const path = getDimensionValue(row, pageViewUsers.dimensionHeaders || [], "pagePath") || "/";
+        return [path, {
+          pageViews: Math.round(getMetricValue(row, pageViewUsers.metricHeaders || [], "eventCount")),
+          users: Math.round(getMetricValue(row, pageViewUsers.metricHeaders || [], "totalUsers")),
+        }];
+      })
+    );
 
     return {
       configured: true,
@@ -233,13 +265,17 @@ const getGa4Analytics = async (periodKey = "month") => {
         pageViews: Math.round(getMetricValue(row, trends.metricHeaders || [], "screenPageViews")),
         events: Math.round(getMetricValue(row, trends.metricHeaders || [], "eventCount")),
       })),
-      topPages: (topPages.rows || []).map((row) => ({
-        path: getDimensionValue(row, topPages.dimensionHeaders || [], "pagePath") || "/",
-        title: getDimensionValue(row, topPages.dimensionHeaders || [], "pageTitle") || "Không có tiêu đề",
-        pageViews: Math.round(getMetricValue(row, topPages.metricHeaders || [], "screenPageViews")),
-        activeUsers: Math.round(getMetricValue(row, topPages.metricHeaders || [], "activeUsers")),
-        events: Math.round(getMetricValue(row, topPages.metricHeaders || [], "eventCount")),
-      })),
+      topPages: (topPages.rows || []).map((row) => {
+        const path = getDimensionValue(row, topPages.dimensionHeaders || [], "pagePath") || "/";
+        const pageViewStats = pageViewUserRows.get(path);
+        return {
+          path,
+          title: getDimensionValue(row, topPages.dimensionHeaders || [], "pageTitle") || "Không có tiêu đề",
+          pageViews: pageViewStats?.pageViews ?? Math.round(getMetricValue(row, topPages.metricHeaders || [], "screenPageViews")),
+          activeUsers: pageViewStats?.users ?? 0,
+          events: Math.round(getMetricValue(row, topPages.metricHeaders || [], "eventCount")),
+        };
+      }),
       trafficChannels: (trafficChannels.rows || []).map((row) => ({
         channel: getDimensionValue(row, trafficChannels.dimensionHeaders || [], "sessionDefaultChannelGroup") || "Unassigned",
         sessions: Math.round(getMetricValue(row, trafficChannels.metricHeaders || [], "sessions")),
@@ -250,7 +286,7 @@ const getGa4Analytics = async (periodKey = "month") => {
       topEvents: (topEvents.rows || []).map((row) => ({
         name: getDimensionValue(row, topEvents.dimensionHeaders || [], "eventName") || "unknown",
         count: Math.round(getMetricValue(row, topEvents.metricHeaders || [], "eventCount")),
-        activeUsers: Math.round(getMetricValue(row, topEvents.metricHeaders || [], "activeUsers")),
+        activeUsers: Math.round(getMetricValue(row, topEvents.metricHeaders || [], "totalUsers")),
       })),
     };
   } catch (error) {

@@ -217,6 +217,25 @@ const trafficChannelLabel: Record<string, string> = {
 
 const getTrafficChannelLabel = (channel: string) => trafficChannelLabel[channel] || channel;
 
+const eventNameLabel: Record<string, string> = {
+  scroll: 'Cuộn trang',
+  user_engagement: 'Tương tác người dùng',
+  page_view: 'Xem trang',
+  session_start: 'Bắt đầu phiên',
+  first_visit: 'Lần truy cập đầu',
+  form_start: 'Bắt đầu nhập biểu mẫu',
+  form_submit: 'Gửi biểu mẫu',
+  login: 'Đăng nhập',
+  sign_up: 'Đăng ký',
+  search: 'Tìm kiếm',
+  survey_start: 'Bắt đầu khảo sát',
+  survey_complete: 'Hoàn tất khảo sát',
+  select_content: 'Chọn nội dung',
+  click: 'Nhấp chuột',
+};
+
+const getEventNameLabel = (name: string) => eventNameLabel[name] || name;
+
 const StatCard = ({ label, value, icon: Icon, accent, sub }: { label: string; value: number | string; icon: any; accent: string; sub?: string }) => (
   <div className="h-full min-h-[124px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm">
     <div className="flex h-full items-start justify-between gap-3">
@@ -609,7 +628,7 @@ const Ga4Panel = ({ ga4, periodLabel }: { ga4?: Ga4Data; periodLabel: string }) 
         </div>
         <div className="hidden md:grid grid-cols-[1fr_140px_120px] gap-4 px-5 py-3 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase tracking-wider text-slate-500">
           <span>Trang / màn hình</span>
-          <span>Người dùng</span>
+          <span>Người xem</span>
           <span>Lượt xem</span>
         </div>
         <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
@@ -642,7 +661,7 @@ const Ga4Panel = ({ ga4, periodLabel }: { ga4?: Ga4Data; periodLabel: string }) 
               <FileText size={15} className="text-teal-500" /> Trang xem nhiều
             </h3>
           </div>
-          <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+          <div className="max-h-[520px] overflow-y-auto divide-y divide-slate-50 dark:divide-slate-700/50">
             {ga4.topPages.length === 0 ? (
               <p className="py-8 text-center text-sm text-slate-400">Chưa có dữ liệu GA4</p>
             ) : ga4.topPages.map((page) => {
@@ -655,7 +674,7 @@ const Ga4Panel = ({ ga4, periodLabel }: { ga4?: Ga4Data; periodLabel: string }) 
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-black text-slate-900 dark:text-white">{page.pageViews}</p>
-                    <p className="text-[11px] text-slate-400">{page.activeUsers} users</p>
+                    <p className="text-[11px] text-slate-400">{page.activeUsers} người xem</p>
                   </div>
                 </div>
               );
@@ -665,17 +684,25 @@ const Ga4Panel = ({ ga4, periodLabel }: { ga4?: Ga4Data; periodLabel: string }) 
       </div>
 
       <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700">
+          <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+            <Gauge size={15} className="text-violet-500" /> Sự kiện GA4
+          </h3>
+        </div>
         <div className="hidden md:grid grid-cols-[1fr_120px_120px] gap-4 px-5 py-3 bg-slate-50 dark:bg-slate-700/50 text-xs font-bold uppercase tracking-wider text-slate-500">
           <span>Sự kiện</span>
           <span>Số lần</span>
           <span>Người dùng</span>
         </div>
-        <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
+        <div className="max-h-[420px] overflow-y-auto divide-y divide-slate-50 dark:divide-slate-700/50">
           {ga4.topEvents.length === 0 ? (
             <p className="py-8 text-center text-sm text-slate-400">Chưa có event GA4</p>
           ) : ga4.topEvents.map((event) => (
             <div key={event.name} className="grid grid-cols-1 md:grid-cols-[1fr_120px_120px] gap-2 md:gap-4 px-5 py-3 items-center">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{event.name}</p>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{getEventNameLabel(event.name)}</p>
+                <p className="text-xs text-slate-400 truncate">{event.name}</p>
+              </div>
               <p className="text-sm font-bold text-indigo-600">{event.count}</p>
               <p className="text-sm text-slate-600 dark:text-slate-300">{event.activeUsers}</p>
             </div>
