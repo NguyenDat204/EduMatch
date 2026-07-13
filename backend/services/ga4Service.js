@@ -142,7 +142,7 @@ const getGa4Analytics = async (periodKey = "month") => {
       }),
       runOptionalGa4Report(authClient, propertyId, "runReport", {
         dateRanges,
-        dimensions: [{ name: "pagePath" }, { name: "pageTitle" }],
+        dimensions: [{ name: "pagePath" }],
         metrics: [
           { name: "screenPageViews" },
           { name: "eventCount" },
